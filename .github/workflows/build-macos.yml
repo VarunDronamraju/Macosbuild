@@ -62,7 +62,12 @@ jobs:
         
     - name: Build macOS application
       run: |
-        python -m PyInstaller --clean --noconfirm dist_configs/pyinstaller_macos.spec
+        # Ensure we're in the project root directory
+        pwd
+        ls -la dist_configs/
+        ls -la
+        # Use absolute path to ensure PyInstaller finds the spec file
+        python -m PyInstaller --clean --noconfirm "$(pwd)/dist_configs/pyinstaller_macos.spec"
         
     - name: Create DMG installer
       run: |
