@@ -1,0 +1,709 @@
+import sys
+import json
+from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
+                             QHBoxLayout, QPushButton, QLabel, QTextEdit, 
+                             QLineEdit, QScrollArea, QFrame, QDialog, QListWidget,
+                             QListWidgetItem, QCheckBox, QMessageBox, QSplitter)
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QPropertyAnimation, QRect, QEasingCurve
+from PyQt6.QtGui import (QPalette, QColor, QFont, QPainter, QPaintEvent, 
+                         QBrush, QLinearGradient, QRadialGradient, QPixmap, 
+                         QIcon, QPen, QFontMetrics)
+
+class GradientWidget(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+    
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        # Main gradient background
+        gradient = QLinearGradient(0, 0, self.width(), self.height())
+        gradient.setColorAt(0, QColor(248, 255, 254))  # #f8fffe
+        gradient.setColorAt(1, QColor(240, 249, 247))  # #f0f9f7
+        painter.fillRect(self.rect(), QBrush(gradient))
+        
+        # Radial gradient patterns
+        radial1 = QRadialGradient(self.width() * 0.2, self.height() * 0.8, self.width() * 0.5)
+        radial1.setColorAt(0, QColor(120, 220, 180, 25))
+        radial1.setColorAt(1, QColor(120, 220, 180, 0))
+        painter.fillRect(self.rect(), QBrush(radial1))
+        
+        radial2 = QRadialGradient(self.width() * 0.8, self.height() * 0.2, self.width() * 0.5)
+        radial2.setColorAt(0, QColor(120, 220, 180, 20))
+        radial2.setColorAt(1, QColor(120, 220, 180, 0))
+        painter.fillRect(self.rect(), QBrush(radial2))
+
+class PulsingDot(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedSize(8, 8)
+        self.opacity = 1.0
+        
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.updateOpacity)
+        self.timer.start(50)  # Update every 50ms for smooth animation
+        
+        self.direction = -1  # -1 for decreasing, 1 for increasing
+        
+    def updateOpacity(self):
+        self.opacity += self.direction * 0.05
+        if self.opacity <= 0.5:
+            self.direction = 1
+        elif self.opacity >= 1.0:
+            self.direction = -1
+        self.update()
+        
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setOpacity(self.opacity)
+        painter.setBrush(QBrush(QColor(72, 187, 120)))
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawEllipse(0, 0, 8, 8)
+
+class ChatItem(QFrame):
+    clicked = pyqtSignal()
+    
+    def __init__(self, title, preview, is_active=False):
+        super().__init__()
+        self.title = title
+        self.preview = preview
+        self.is_active = is_active
+        self.setFixedHeight(60)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        
+        layout = QVBoxLayout()
+        layout.setContentsMargins(15, 12, 15, 12)
+        layout.setSpacing(4)
+        
+        title_label = QLabel(title)
+        title_label.setFont(QFont("Arial", 10, QFont.Weight.Medium))
+        title_label.setStyleSheet("color: #2d3748; font-weight: 500;")
+        
+        preview_label = QLabel(preview)
+        preview_label.setFont(QFont("Arial", 9))
+        preview_label.setStyleSheet("color: #718096; line-height: 1.3;")
+        preview_label.setWordWrap(True)
+        
+        layout.addWidget(title_label)
+        layout.addWidget(preview_label)
+        self.setLayout(layout)
+        
+        self.updateStyle()
+        
+    def updateStyle(self):
+        if self.is_active:
+            self.setStyleSheet("""
+                QFrame {
+                    background: rgba(120, 220, 180, 0.1);
+                    border: 1px solid rgba(120, 220, 180, 0.2);
+                    border-radius: 8px;
+                    margin-bottom: 8px;
+                }
+            """)
+        else:
+            self.setStyleSheet("""
+                QFrame {
+                    background: rgba(255, 255, 255, 0.5);
+                    border: 1px solid rgba(0, 0, 0, 0.05);
+                    border-radius: 8px;
+                    margin-bottom: 8px;
+                }
+                QFrame:hover {
+                    background: rgba(120, 220, 180, 0.1);
+                    border: 1px solid rgba(120, 220, 180, 0.2);
+                }
+            """)
+    
+    def mousePressEvent(self, event):
+        self.clicked.emit()
+
+class MessageBubble(QFrame):
+    def __init__(self, message, sender='user'):
+        super().__init__()
+        self.message = message
+        self.sender = sender
+        
+        layout = QVBoxLayout()
+        layout.setContentsMargins(16, 12, 16, 12)
+        
+        label = QLabel(message)
+        label.setWordWrap(True)
+        label.setFont(QFont("Arial", 10))
+        
+        if sender == 'user':
+            label.setStyleSheet("color: white;")
+            self.setStyleSheet("""
+                QFrame {
+                    background: #78dcb4;
+                    border-radius: 16px;
+                    margin-bottom: 16px;
+                }
+            """)
+            self.setMaximumWidth(int(self.parent().width() * 0.7) if self.parent() else 400)
+        else:
+            label.setStyleSheet("color: #2d3748;")
+            self.setStyleSheet("""
+                QFrame {
+                    background: white;
+                    border: 1px solid rgba(0, 0, 0, 0.05);
+                    border-radius: 16px;
+                    margin-bottom: 16px;
+                }
+            """)
+        
+        layout.addWidget(label)
+        self.setLayout(layout)
+
+class ToggleSwitch(QWidget):
+    toggled = pyqtSignal(bool)
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedSize(40, 20)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.is_active = False
+        
+    def mousePressEvent(self, event):
+        self.is_active = not self.is_active
+        self.toggled.emit(self.is_active)
+        self.update()
+        
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        # Background
+        if self.is_active:
+            painter.setBrush(QBrush(QColor(120, 220, 180)))
+        else:
+            painter.setBrush(QBrush(QColor(226, 232, 240)))
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawRoundedRect(0, 0, 40, 20, 10, 10)
+        
+        # Circle
+        painter.setBrush(QBrush(QColor(255, 255, 255)))
+        if self.is_active:
+            painter.drawEllipse(22, 2, 16, 16)
+        else:
+            painter.drawEllipse(2, 2, 16, 16)
+
+class UserMenuDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("User Menu")
+        self.setFixedSize(400, 500)
+        self.setModal(True)
+        
+        # Remove window frame for custom styling
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)
+        
+        layout = QVBoxLayout()
+        layout.setContentsMargins(30, 30, 30, 30)
+        
+        # Header
+        header_layout = QHBoxLayout()
+        title = QLabel("User Menu")
+        title.setFont(QFont("Arial", 16, QFont.Weight.DemiBold))
+        title.setStyleSheet("color: #2d3748;")
+        
+        close_btn = QPushButton("×")
+        close_btn.setFixedSize(30, 30)
+        close_btn.setStyleSheet("""
+            QPushButton {
+                background: none;
+                border: none;
+                font-size: 20px;
+                color: #a0aec0;
+            }
+            QPushButton:hover {
+                color: #78dcb4;
+            }
+        """)
+        close_btn.clicked.connect(self.close)
+        
+        header_layout.addWidget(title)
+        header_layout.addStretch()
+        header_layout.addWidget(close_btn)
+        
+        layout.addLayout(header_layout)
+        layout.addSpacing(20)
+        
+        # Menu items
+        menu_items = [
+            ("📋", "Prompt History", self.showPromptHistory),
+            ("📁", "Data Controls", self.showDataControls),
+            ("👤", "Personal Details", self.showPersonalDetails),
+            ("☀", "Theme", self.changeTheme),
+            ("❓", "Help & Support", self.showHelp),
+            ("☁", "Cloud Documents", self.showCloudDocuments),
+            ("🚪", "Logout", self.logout)
+        ]
+        
+        for icon, text, callback in menu_items:
+            item_layout = QHBoxLayout()
+            
+            icon_label = QLabel(icon)
+            icon_label.setFixedSize(16, 16)
+            
+            text_label = QLabel(text)
+            text_label.setFont(QFont("Arial", 11))
+            
+            item_widget = QWidget()
+            item_widget.setLayout(item_layout)
+            item_widget.setFixedHeight(40)
+            item_widget.setCursor(Qt.CursorShape.PointingHandCursor)
+            
+            if text == "Data Controls":
+                toggle = ToggleSwitch()
+                item_layout.addWidget(icon_label)
+                item_layout.addWidget(text_label)
+                item_layout.addStretch()
+                item_layout.addWidget(toggle)
+            else:
+                item_layout.addWidget(icon_label)
+                item_layout.addWidget(text_label)
+                item_layout.addStretch()
+            
+            item_widget.mousePressEvent = lambda e, cb=callback: cb()
+            
+            item_widget.setStyleSheet("""
+                QWidget:hover {
+                    color: #78dcb4;
+                    background: rgba(120, 220, 180, 0.05);
+                }
+            """)
+            
+            layout.addWidget(item_widget)
+            
+            # Add separator
+            if text != "Logout":
+                separator = QFrame()
+                separator.setFrameShape(QFrame.Shape.HLine)
+                separator.setStyleSheet("color: rgba(0, 0, 0, 0.05);")
+                layout.addWidget(separator)
+        
+        self.setLayout(layout)
+        
+        # Styling
+        self.setStyleSheet("""
+            QDialog {
+                background: white;
+                border-radius: 16px;
+            }
+        """)
+        
+    def showPromptHistory(self):
+        QMessageBox.information(self, "Prompt History", 
+                               "Total queries: 4\n\nRecent prompts:\n• Getting started with CompanionAI\n• Document analysis request\n• Wellness strategies discussion")
+        self.close()
+        
+    def showDataControls(self):
+        QMessageBox.information(self, "Data Controls", 
+                               "Ingested Documents:\n• Project_Report_Q4.pdf\n• Wellness_Guidelines.docx\n• Team_Analytics.xlsx\n\nCloud storage: Disabled")
+        self.close()
+        
+    def showPersonalDetails(self):
+        QMessageBox.information(self, "Personal Details", 
+                               "Name: User\nEmail: user@company.com\nRole: Team Member\nSubscription: Pro")
+        self.close()
+        
+    def changeTheme(self):
+        QMessageBox.information(self, "Theme Options", 
+                               "• Light Theme (Current)\n• Dark Theme\n• Auto (System)\n• High Contrast")
+        self.close()
+        
+    def showHelp(self):
+        QMessageBox.information(self, "Help & Support", 
+                               "• Report Bug\n• Send Feedback\n• Documentation\n• Contact Support\n• Feature Requests")
+        self.close()
+        
+    def showCloudDocuments(self):
+        QMessageBox.information(self, "Cloud Documents", 
+                               "Stored Documents:\n• Analysis_Report.pdf (2.1 MB)\n• Meeting_Notes.docx (856 KB)\n• Data_Export.csv (1.3 MB)\n\nTotal: 4.3 MB / 50 MB used")
+        self.close()
+        
+    def logout(self):
+        reply = QMessageBox.question(self, "Logout", "Are you sure you want to logout?", 
+                                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if reply == QMessageBox.StandardButton.Yes:
+            QMessageBox.information(self, "Logout", "Logging out...")
+        self.close()
+
+class CompanionAI(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.message_count = 0
+        self.initUI()
+        
+        # Add initial message after a short delay
+        QTimer.singleShot(500, self.addInitialMessage)
+        
+    def initUI(self):
+        self.setWindowTitle("CompanionAI")
+        self.setGeometry(100, 100, 1200, 800)
+        
+        # Main widget with gradient background
+        main_widget = GradientWidget()
+        self.setCentralWidget(main_widget)
+        
+        # Main layout
+        main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+        
+        # Header
+        header = self.createHeader()
+        main_layout.addWidget(header)
+        
+        # Content area with splitter
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        
+        # Sidebar
+        sidebar = self.createSidebar()
+        splitter.addWidget(sidebar)
+        
+        # Main chat area
+        chat_area = self.createChatArea()
+        splitter.addWidget(chat_area)
+        
+        # Set splitter proportions
+        splitter.setSizes([280, 920])
+        splitter.setChildrenCollapsible(False)
+        
+        main_layout.addWidget(splitter)
+        main_widget.setLayout(main_layout)
+        
+    def createHeader(self):
+        header = QFrame()
+        header.setFixedHeight(60)
+        header.setStyleSheet("""
+            QFrame {
+                background: rgba(255, 255, 255, 0.95);
+                border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            }
+        """)
+        
+        layout = QHBoxLayout()
+        layout.setContentsMargins(20, 0, 20, 0)
+        
+        # Title
+        title = QLabel("CompanionAI")
+        title.setFont(QFont("Arial", 16, QFont.Weight.DemiBold))
+        title.setStyleSheet("color: #2d3748; letter-spacing: -0.5px;")
+        
+        # Connection status
+        status_widget = QWidget()
+        status_layout = QHBoxLayout()
+        status_layout.setContentsMargins(0, 0, 0, 0)
+        status_layout.setSpacing(8)
+        
+        dot = PulsingDot()
+        status_label = QLabel("Connected")
+        status_label.setFont(QFont("Arial", 11))
+        status_label.setStyleSheet("color: #48bb78;")
+        
+        status_layout.addWidget(dot)
+        status_layout.addWidget(status_label)
+        status_widget.setLayout(status_layout)
+        
+        layout.addWidget(title)
+        layout.addStretch()
+        layout.addWidget(status_widget)
+        
+        header.setLayout(layout)
+        return header
+        
+    def createSidebar(self):
+        sidebar = QFrame()
+        sidebar.setFixedWidth(280)
+        sidebar.setStyleSheet("""
+            QFrame {
+                background: rgba(255, 255, 255, 0.6);
+                border-right: 1px solid rgba(0, 0, 0, 0.05);
+            }
+        """)
+        
+        layout = QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        
+        # Chat history
+        history_scroll = QScrollArea()
+        history_scroll.setWidgetResizable(True)
+        history_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        history_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarNever)
+        history_scroll.setStyleSheet("QScrollArea { border: none; }")
+        
+        history_widget = QWidget()
+        history_layout = QVBoxLayout()
+        history_layout.setContentsMargins(15, 20, 15, 20)
+        history_layout.setSpacing(0)
+        
+        # Chat items
+        chat_items_data = [
+            ("Getting Started", "Welcome to CompanionAI! How can I help you today?", True),
+            ("Wellness Discussion", "Talked about workplace wellness strategies...", False),
+            ("Document Analysis", "Analyzed quarterly reports and provided insights...", False),
+            ("Project Planning", "Created a comprehensive project timeline...", False)
+        ]
+        
+        self.chat_items = []
+        for title, preview, is_active in chat_items_data:
+            item = ChatItem(title, preview, is_active)
+            item.clicked.connect(lambda t=title: self.selectChatItem(t))
+            history_layout.addWidget(item)
+            self.chat_items.append(item)
+        
+        history_layout.addStretch()
+        history_widget.setLayout(history_layout)
+        history_scroll.setWidget(history_widget)
+        
+        # Profile section
+        profile_section = QFrame()
+        profile_section.setFixedHeight(90)
+        profile_section.setStyleSheet("border-top: 1px solid rgba(0, 0, 0, 0.05);")
+        
+        profile_layout = QVBoxLayout()
+        profile_layout.setContentsMargins(15, 20, 15, 20)
+        profile_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        
+        profile_btn = QPushButton("U")
+        profile_btn.setFixedSize(50, 50)
+        profile_btn.setStyleSheet("""
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
+                                          stop:0 #78dcb4, stop:1 #68d391);
+                border: none;
+                border-radius: 25px;
+                color: white;
+                font-size: 18px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                transform: translateY(-2px);
+            }
+        """)
+        profile_btn.clicked.connect(self.showUserMenu)
+        
+        profile_layout.addWidget(profile_btn)
+        profile_section.setLayout(profile_layout)
+        
+        layout.addWidget(history_scroll)
+        layout.addWidget(profile_section)
+        sidebar.setLayout(layout)
+        
+        return sidebar
+        
+    def createChatArea(self):
+        chat_area = QFrame()
+        
+        layout = QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        
+        # Messages area
+        self.messages_scroll = QScrollArea()
+        self.messages_scroll.setWidgetResizable(True)
+        self.messages_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.messages_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarNever)
+        self.messages_scroll.setStyleSheet("QScrollArea { border: none; }")
+        
+        self.messages_widget = QWidget()
+        self.messages_layout = QVBoxLayout()
+        self.messages_layout.setContentsMargins(20, 20, 20, 20)
+        self.messages_layout.setSpacing(0)
+        
+        # Welcome message
+        self.welcome_widget = QWidget()
+        welcome_layout = QVBoxLayout()
+        welcome_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        welcome_title = QLabel("Welcome to CompanionAI")
+        welcome_title.setFont(QFont("Arial", 20, QFont.Weight.DemiBold))
+        welcome_title.setStyleSheet("color: #2d3748; margin-bottom: 10px;")
+        welcome_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        welcome_subtitle = QLabel("Your intelligent workplace companion. How can I assist you today?")
+        welcome_subtitle.setFont(QFont("Arial", 12))
+        welcome_subtitle.setStyleSheet("color: #4a5568; opacity: 0.7;")
+        welcome_subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        welcome_layout.addWidget(welcome_title)
+        welcome_layout.addWidget(welcome_subtitle)
+        self.welcome_widget.setLayout(welcome_layout)
+        
+        self.messages_layout.addStretch()
+        self.messages_layout.addWidget(self.welcome_widget)
+        self.messages_layout.addStretch()
+        
+        self.messages_widget.setLayout(self.messages_layout)
+        self.messages_scroll.setWidget(self.messages_widget)
+        
+        # Input area
+        input_area = self.createInputArea()
+        
+        layout.addWidget(self.messages_scroll)
+        layout.addWidget(input_area)
+        
+        chat_area.setLayout(layout)
+        return chat_area
+        
+    def createInputArea(self):
+        input_area = QFrame()
+        input_area.setFixedHeight(80)
+        input_area.setStyleSheet("""
+            QFrame {
+                background: rgba(255, 255, 255, 0.5);
+                border-top: 1px solid rgba(0, 0, 0, 0.05);
+            }
+        """)
+        
+        layout = QVBoxLayout()
+        layout.setContentsMargins(20, 20, 20, 20)
+        
+        input_wrapper = QFrame()
+        input_wrapper.setStyleSheet("""
+            QFrame {
+                background: white;
+                border: 1px solid rgba(0, 0, 0, 0.08);
+                border-radius: 12px;
+                padding: 12px 16px;
+            }
+        """)
+        
+        input_layout = QHBoxLayout()
+        input_layout.setContentsMargins(16, 12, 16, 12)
+        input_layout.setSpacing(12)
+        
+        # Document button
+        doc_btn = QPushButton("📄")
+        doc_btn.setFixedSize(32, 32)
+        doc_btn.setStyleSheet("""
+            QPushButton {
+                background: none;
+                border: none;
+                border-radius: 8px;
+                font-size: 16px;
+            }
+            QPushButton:hover {
+                background: rgba(120, 220, 180, 0.1);
+            }
+        """)
+        doc_btn.clicked.connect(self.addDocument)
+        
+        # Input field
+        self.message_input = QLineEdit()
+        self.message_input.setPlaceholderText("Type your message here...")
+        self.message_input.setStyleSheet("""
+            QLineEdit {
+                border: none;
+                font-size: 12px;
+                background: transparent;
+                color: #2d3748;
+            }
+            QLineEdit::placeholder {
+                color: #a0aec0;
+            }
+        """)
+        self.message_input.returnPressed.connect(self.sendMessage)
+        
+        # Send button
+        send_btn = QPushButton("➤")
+        send_btn.setFixedSize(32, 32)
+        send_btn.setStyleSheet("""
+            QPushButton {
+                background: none;
+                border: none;
+                border-radius: 8px;
+                font-size: 16px;
+            }
+            QPushButton:hover {
+                background: rgba(120, 220, 180, 0.1);
+                color: #78dcb4;
+            }
+        """)
+        send_btn.clicked.connect(self.sendMessage)
+        
+        input_layout.addWidget(doc_btn)
+        input_layout.addWidget(self.message_input)
+        input_layout.addWidget(send_btn)
+        
+        input_wrapper.setLayout(input_layout)
+        layout.addWidget(input_wrapper)
+        input_area.setLayout(layout)
+        
+        return input_area
+        
+    def addInitialMessage(self):
+        self.addMessageToChat("Hello! Welcome to CompanionAI.", 'assistant')
+        
+    def sendMessage(self):
+        message = self.message_input.text().strip()
+        if message:
+            self.addMessageToChat(message, 'user')
+            self.message_input.clear()
+            
+            # Simulate assistant response
+            QTimer.singleShot(1000, lambda: self.addMessageToChat(
+                "Thank you for your message! I'm here to help with any questions or tasks you have.", 
+                'assistant'
+            ))
+            
+    def addMessageToChat(self, message, sender):
+        # Remove welcome message if present
+        if self.welcome_widget:
+            self.welcome_widget.setVisible(False)
+            
+        # Create message bubble
+        bubble = MessageBubble(message, sender)
+        
+        # Align message
+        bubble_layout = QHBoxLayout()
+        bubble_layout.setContentsMargins(0, 0, 0, 0)
+        
+        if sender == 'user':
+            bubble_layout.addStretch()
+            bubble_layout.addWidget(bubble)
+        else:
+            bubble_layout.addWidget(bubble)
+            bubble_layout.addStretch()
+            
+        bubble_widget = QWidget()
+        bubble_widget.setLayout(bubble_layout)
+        
+        self.messages_layout.addWidget(bubble_widget)
+        
+        # Scroll to bottom
+        QTimer.singleShot(10, lambda: self.messages_scroll.verticalScrollBar().setValue(
+            self.messages_scroll.verticalScrollBar().maximum()
+        ))
+        
+        self.message_count += 1
+        
+    def selectChatItem(self, title):
+        for item in self.chat_items:
+            item.is_active = (item.title == title)
+            item.updateStyle()
+            
+    def addDocument(self):
+        QMessageBox.information(self, "Document Upload", 
+                               "Document upload feature - Select files to add to your knowledge base")
+        
+    def showUserMenu(self):
+        dialog = UserMenuDialog(self)
+        dialog.exec()
+
+def main():
+    app = QApplication(sys.argv)
+    app.setApplicationName("CompanionAI")
+    
+    window = CompanionAI()
+    window.show()
+    
+    sys.exit(app.exec())
+
+if __name__ == '__main__':
+    main()

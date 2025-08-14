@@ -1,0 +1,463 @@
+================================================================================
+                    RAG COMPANION AI - QUERY RESPONSE GENERATION SYSTEM
+================================================================================
+
+This document provides a comprehensive overview of all classes, functions, and components
+responsible for query response generation in the RAG Companion AI system.
+
+================================================================================
+                                SYSTEM ARCHITECTURE
+================================================================================
+
+The query response generation system follows this flow:
+
+1. User Query → Frontend API Client → Backend API Endpoint
+2. Backend API → RAGService → RAGPipeline (Context Retrieval)
+3. RAGService → OllamaClient (LLM Response Generation)
+4. RAGService → WebSearchClient (Fallback Context)
+5. Response → Frontend → User
+
+================================================================================
+                                BACKEND COMPONENTS
+================================================================================
+
+1. MAIN API ENDPOINTS (backend/main.py)
+================================================================================
+
+@app.post("/query", response_model=QueryResponse)
+async def query_documents(request: QueryRequest, current_user: User = Depends(get_current_user)):
+    """
+    PRIMARY QUERY ENDPOINT - Authenticated
+    - Receives user query and authentication
+    - Calls RAGService.query_documents()
+    - Returns structured QueryResponse with response and sources
+    - Location: backend/main.py:391-410
+    """
+
+@app.post("/query/legacy")
+async def query_documents_legacy(request: QueryRequest):
+    """
+    LEGACY QUERY ENDPOINT - No authentication required
+    - Backward compatibility endpoint
+    - Uses default user_id or provided user_id
+    - Location: backend/main.py:411-433
+    """
+
+2. RAG SERVICE (backend/llm.py)
+================================================================================
+
+class RAGService:
+    """
+    MAIN RAG ORCHESTRATION SERVICE
+    - Coordinates the entire RAG pipeline
+    - Manages context retrieval, LLM generation, and web search fallback
+    - Location: backend/llm.py:80-161
+    """
+    
+    def __init__(self):
+        self.rag_pipeline = RAGPipeline()      # Context retrieval
+        self.ollama_client = OllamaClient()    # LLM generation
+        self.web_client = WebSearchClient()    # Web search fallback
+    
+    def create_prompt(self, context: str, query: str, has_web_context: bool = False) -> str:
+        """
+        PROMPT ENGINEERING FUNCTION
+        - Creates structured prompts for the LLM
+        - Handles cases with/without document context
+        - Includes web search context when available
+        - Location: backend/llm.py:85-118
+        """
+    
+    def query_documents(self, query: str, user_id: str, stream: bool = True) -> Iterator[str]:
+        """
+        MAIN RAG QUERY FUNCTION - Core orchestration
+        - Step 1: Retrieve context from user's documents via RAGPipeline
+        - Step 2: Assess context quality and trigger web search if needed
+        - Step 3: Generate response using OllamaClient
+        - Location: backend/llm.py:119-161
+        """
+
+3. LLM CLIENT (backend/llm.py)
+================================================================================
+
+class OllamaClient:
+    """
+    LOCAL LLM CLIENT - Ollama Integration
+    - Handles communication with local Ollama server
+    - Supports streaming and non-streaming responses
+    - Location: backend/llm.py:8-48
+    """
+    
+    def __init__(self):
+        self.base_url = settings.OLLAMA_URL
+        self.model = settings.LLM_MODEL  # "gemma3:1b-it-qat"
+    
+    def generate_response(self, prompt: str, stream: bool = True) -> Iterator[str]:
+        """
+        LLM RESPONSE GENERATION
+        - Sends prompt to Ollama API
+        - Handles streaming response chunks
+        - Error handling for LLM failures
+        - Location: backend/llm.py:15-42
+        """
+    
+    def is_available(self) -> bool:
+        """
+        LLM AVAILABILITY CHECK
+        - Verifies Ollama server is running
+        - Location: backend/llm.py:44-48
+        """
+
+4. WEB SEARCH CLIENT (backend/llm.py)
+================================================================================
+
+class WebSearchClient:
+    """
+    WEB SEARCH FALLBACK - Tavily Integration
+    - Provides additional context when document context is insufficient
+    - Location: backend/llm.py:50-78
+    """
+    
+    def __init__(self):
+        self.tavily_client = TavilyClient(api_key=settings.TAVILY_API_KEY)
+    
+    def search(self, query: str, max_results: int = 3) -> str:
+        """
+        WEB SEARCH FUNCTION
+        - Searches web for additional context
+        - Formats results for LLM consumption
+        - Location: backend/llm.py:53-75
+        """
+
+5. RAG PIPELINE (backend/rag.py)
+================================================================================
+
+class RAGPipeline:
+    """
+    CONTEXT RETRIEVAL PIPELINE
+    - Handles document embedding and retrieval
+    - Manages vector similarity search
+    - Location: backend/rag.py:115-212
+    """
+    
+    def __init__(self):
+        self.vector_store = VectorStore()
+        self.embedding_model = SentenceTransformer(settings.EMBEDDING_MODEL)
+    
+    def retrieve_context(self, query: str, user_id: str, top_k: int = 5) -> Dict[str, Any]:
+        """
+        CONTEXT RETRIEVAL FUNCTION
+        - Generates query embeddings
+        - Searches vector store for similar chunks
+        - Retrieves full chunk content from database
+        - Returns context with source information
+        - Location: backend/rag.py:119-193
+        """
+    
+    def assess_context_quality(self, context: str, query: str) -> bool:
+        """
+        CONTEXT QUALITY ASSESSMENT
+        - Evaluates if retrieved context is sufficient
+        - Uses keyword overlap analysis
+        - Triggers web search fallback if needed
+        - Location: backend/rag.py:195-212
+        """
+
+6. VECTOR STORE (backend/rag.py)
+================================================================================
+
+class VectorStore:
+    """
+    VECTOR DATABASE MANAGEMENT - Qdrant Integration
+    - Handles document embeddings storage and retrieval
+    - Manages user-specific collections
+    - Location: backend/rag.py:9-113
+    """
+    
+    def __init__(self):
+        self.client = QdrantClient(url=settings.QDRANT_URL)
+        self.embedding_model = SentenceTransformer(settings.EMBEDDING_MODEL)
+        self.embedding_size = 384  # all-MiniLM-L6-v2 dimension
+    
+    def create_user_collection(self, user_id: str):
+        """
+        USER COLLECTION MANAGEMENT
+        - Creates/accesses user-specific vector collections
+        - Location: backend/rag.py:20-35
+        """
+    
+    def search_similar(self, query_embedding: np.ndarray, user_id: str, top_k: int = 5, score_threshold: float = 0.0) -> List[Dict]:
+        """
+        VECTOR SIMILARITY SEARCH
+        - Searches for similar document chunks
+        - Applies score threshold filtering
+        - Returns ranked results with metadata
+        - Location: backend/rag.py:57-95
+        """
+    
+    def store_embedding(self, point_id: str, embedding: np.ndarray, metadata: Dict, user_id: str):
+        """
+        EMBEDDING STORAGE
+        - Stores document chunk embeddings
+        - Location: backend/rag.py:37-55
+        """
+
+7. DOCUMENT PROCESSOR (backend/documents.py)
+================================================================================
+
+class DocumentProcessor:
+    """
+    DOCUMENT PROCESSING PIPELINE
+    - Handles document upload, text extraction, and chunking
+    - Generates embeddings for document chunks
+    - Location: backend/documents.py:9-327
+    """
+    
+    def __init__(self):
+        self.embedding_model = SentenceTransformer(settings.EMBEDDING_MODEL)
+    
+    def extract_text(self, file_path: str, file_type: str) -> str:
+        """
+        TEXT EXTRACTION
+        - Supports PDF, DOCX, TXT formats
+        - Location: backend/documents.py:15-45
+        """
+    
+    def chunk_text(self, text: str, chunk_size: int = None, overlap: int = None) -> List[str]:
+        """
+        TEXT CHUNKING
+        - Splits documents into overlapping chunks
+        - Respects sentence boundaries
+        - Location: backend/documents.py:47-75
+        """
+    
+    def generate_embeddings(self, texts: List[str]) -> np.ndarray:
+        """
+        EMBEDDING GENERATION
+        - Creates vector embeddings for text chunks
+        - Location: backend/documents.py:77-79
+        """
+    
+    def process_document(self, file_path: str, filename: str, user_id: str) -> str:
+        """
+        COMPLETE DOCUMENT PROCESSING
+        - Orchestrates entire document processing pipeline
+        - Location: backend/documents.py:81-327
+        """
+
+================================================================================
+                                FRONTEND COMPONENTS
+================================================================================
+
+1. API CLIENT (frontend/api_client.py)
+================================================================================
+
+class APIClient:
+    """
+    FRONTEND API COMMUNICATION
+    - Handles all backend API calls from frontend
+    - Location: frontend/api_client.py
+    """
+    
+    def query_documents(self, query: str, session_id: str = None) -> Dict:
+        """
+        AUTHENTICATED QUERY
+        - Sends queries to authenticated endpoint
+        - Location: frontend/api_client.py:230-252
+        """
+    
+    def query_documents_legacy(self, query: str, user_id: str = "test_user", session_id: str = None) -> Dict:
+        """
+        LEGACY QUERY
+        - Sends queries to legacy endpoint
+        - Location: frontend/api_client.py:253-275
+        """
+
+class StreamingQueryThread(QThread):
+    """
+    STREAMING QUERY HANDLING
+    - Manages asynchronous query processing
+    - Emits signals for UI updates
+    - Location: frontend/api_client.py:291-319
+    """
+
+2. CHAT WIDGET (frontend/chat_widget.py)
+================================================================================
+
+class ChatWidget:
+    """
+    USER INTERFACE FOR QUERIES
+    - Handles user input and displays responses
+    - Location: frontend/chat_widget.py
+    """
+    
+    def start_query_processing(self, query: str):
+        """
+        QUERY INITIATION
+        - Starts query processing thread
+        - Location: frontend/chat_widget.py:529
+        """
+    
+    def on_query_completed(self, sources: List = None):
+        """
+        QUERY COMPLETION HANDLER
+        - Updates UI with response
+        - Location: frontend/chat_widget.py:586
+        """
+
+================================================================================
+                                DATA MODELS
+================================================================================
+
+1. REQUEST/RESPONSE MODELS (shared/models.py)
+================================================================================
+
+class QueryRequest(BaseModel):
+    """
+    QUERY REQUEST MODEL
+    - query: str - User's question
+    - session_id: Optional[str] - Chat session identifier
+    - Location: shared/models.py:25-27
+    """
+
+class QueryResponse(BaseModel):
+    """
+    QUERY RESPONSE MODEL
+    - response: str - Generated answer
+    - sources: List[Dict[str, Any]] - Source documents
+    - session_id: Optional[str] - Chat session identifier
+    - Location: shared/models.py:29-33
+    """
+
+2. DATABASE MODELS (backend/database.py)
+================================================================================
+
+class Document:
+    """
+    DOCUMENT DATABASE MODEL
+    - Stores document metadata
+    - Location: backend/database.py
+    """
+
+class DocumentChunk:
+    """
+    DOCUMENT CHUNK DATABASE MODEL
+    - Stores individual text chunks with embeddings
+    - Location: backend/database.py
+    """
+
+================================================================================
+                                CONFIGURATION
+================================================================================
+
+1. SETTINGS (backend/config.py)
+================================================================================
+
+class Settings(BaseSettings):
+    """
+    SYSTEM CONFIGURATION
+    - Location: backend/config.py:8-39
+    """
+    
+    # Vector Database
+    QDRANT_URL: str = "http://localhost:6340"
+    QDRANT_API_KEY: str = ""
+    
+    # AI Models
+    EMBEDDING_MODEL: str = "all-MiniLM-L6-v2"
+    LLM_MODEL: str = "gemma3:1b-it-qat"
+    OLLAMA_URL: str = "http://localhost:11434"
+    
+    # External APIs
+    TAVILY_API_KEY: str = "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"
+    
+    # Processing
+    CHUNK_SIZE: int = 512
+    CHUNK_OVERLAP: int = 50
+    MAX_CONTEXT_LENGTH: int = 4000
+
+================================================================================
+                                QUERY FLOW SUMMARY
+================================================================================
+
+1. USER INPUT
+   User types query in frontend chat widget
+
+2. FRONTEND PROCESSING
+   ChatWidget.start_query_processing() → StreamingQueryThread
+
+3. API CALL
+   APIClient.query_documents() → POST /query endpoint
+
+4. BACKEND AUTHENTICATION
+   main.py:query_documents() → User authentication
+
+5. RAG SERVICE ORCHESTRATION
+   RAGService.query_documents() coordinates:
+   - RAGPipeline.retrieve_context() - Document context retrieval
+   - WebSearchClient.search() - Web search fallback (if needed)
+   - OllamaClient.generate_response() - LLM response generation
+
+6. CONTEXT RETRIEVAL
+   RAGPipeline.retrieve_context():
+   - Generate query embeddings
+   - VectorStore.search_similar() - Find similar chunks
+   - Database lookup for full chunk content
+   - RAGPipeline.assess_context_quality() - Quality check
+
+7. RESPONSE GENERATION
+   OllamaClient.generate_response():
+   - Create structured prompt with context
+   - Send to Ollama LLM
+   - Stream response chunks
+
+8. RESPONSE DELIVERY
+   Response flows back through API → Frontend → User
+
+================================================================================
+                                POTENTIAL IMPROVEMENT AREAS
+================================================================================
+
+1. CONTEXT QUALITY ASSESSMENT
+   - Current: Simple keyword overlap
+   - Improvement: Semantic similarity scoring
+
+2. PROMPT ENGINEERING
+   - Current: Basic prompt template
+   - Improvement: Dynamic prompt optimization
+
+3. SOURCE CITATION
+   - Current: Basic source tracking
+   - Improvement: Inline citations and references
+
+4. STREAMING RESPONSE
+   - Current: Simulated streaming
+   - Improvement: True streaming from Ollama
+
+5. ERROR HANDLING
+   - Current: Basic error messages
+   - Improvement: Graceful degradation and retry logic
+
+================================================================================
+                                DEBUGGING INFORMATION
+================================================================================
+
+The system includes extensive debug logging:
+- DEBUG RAG: Context retrieval and quality assessment
+- DEBUG RAG PIPELINE: Vector search and chunk processing
+- DEBUG RAG SERVICE: Overall orchestration flow
+
+Key debug points:
+- Context length and source count
+- Vector search scores and thresholds
+- Web search fallback triggers
+- LLM availability and response generation
+
+================================================================================
+                                END OF OVERVIEW
+================================================================================
+
+This overview covers all major components responsible for query response generation
+in the RAG Companion AI system. Each component has specific responsibilities and
+contributes to the overall quality and reliability of the RAG responses.
+

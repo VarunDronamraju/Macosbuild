@@ -1,0 +1,178 @@
+name: Build macOS Application
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master ]
+  release:
+    types: [ published ]
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install system dependencies
+      run: |
+        # Install Homebrew if not available
+        if ! command -v brew &> /dev/null; then
+          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        fi
+        
+        # Install macOS build tools
+        brew install create-dmg
+        
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller>=6.2.0 dmgbuild Pillow
+        
+    - name: Create app icon
+      run: |
+        mkdir -p resources/icons
+        # Create a simple icon using Python
+        python -c "
+        from PIL import Image, ImageDraw, ImageFont
+        img = Image.new('RGBA', (512, 512), (41, 128, 185, 255))
+        draw = ImageDraw.Draw(img)
+        try:
+            font = ImageFont.truetype('/System/Library/Fonts/Helvetica.ttc', 120)
+        except:
+            font = ImageFont.load_default()
+        text = 'RAG'
+        bbox = draw.textbbox((0, 0), text, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+        x = (512 - text_width) // 2
+        y = (512 - text_height) // 2
+        draw.text((x, y), text, fill=(255, 255, 255, 255), font=font)
+        img.save('resources/icons/app_icon.icns', format='ICNS')
+        "
+        
+    - name: Build macOS application
+      run: |
+        python -m PyInstaller --clean --noconfirm dist_configs/pyinstaller_macos.spec
+        
+    - name: Create DMG installer
+      run: |
+        # Create DMG using create-dmg
+        create-dmg \
+          --volname "RAG Companion AI" \
+          --volicon "resources/icons/app_icon.icns" \
+          --window-pos 200 120 \
+          --window-size 600 400 \
+          --icon-size 100 \
+          --icon "RAG Companion AI.app" 175 190 \
+          --hide-extension "RAG Companion AI.app" \
+          --app-drop-link 425 190 \
+          "dist/RAGCompanionAI-Installer.dmg" \
+          "dist/"
+          
+    - name: Create installer script
+      run: |
+        cat > dist/install_dependencies.sh << 'EOF'
+        #!/bin/bash
+        # RAG Companion AI - macOS Installer Script
+        
+        echo "🚀 Installing RAG Companion AI dependencies..."
+        
+        # Check if Homebrew is installed
+        if ! command -v brew &> /dev/null; then
+            echo "📦 Installing Homebrew..."
+            /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        fi
+        
+        # Install Docker if not present
+        if ! command -v docker &> /dev/null; then
+            echo "🐳 Installing Docker..."
+            brew install --cask docker
+        fi
+        
+        # Install Ollama if not present
+        if ! command -v ollama &> /dev/null; then
+            echo "🦙 Installing Ollama..."
+            brew install ollama
+        fi
+        
+        # Start Docker
+        echo "🐳 Starting Docker..."
+        open -a Docker
+        
+        # Wait for Docker to start
+        echo "⏳ Waiting for Docker to start..."
+        sleep 30
+        
+        # Pull required Docker images
+        echo "📥 Pulling Docker images..."
+        docker pull postgres:15
+        docker pull qdrant/qdrant:latest
+        
+        # Start services
+        echo "🚀 Starting services..."
+        docker-compose up -d
+        
+        # Pull Ollama model
+        echo "🤖 Downloading AI model..."
+        ollama pull gemma3:1b-it-qat
+        
+        echo "✅ Installation complete!"
+        echo "🎉 RAG Companion AI is ready to use!"
+        EOF
+        
+        chmod +x dist/install_dependencies.sh
+        
+    - name: Upload DMG artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: RAGCompanionAI-macOS-DMG
+        path: dist/RAGCompanionAI-Installer.dmg
+        
+    - name: Upload installer script
+      uses: actions/upload-artifact@v3
+      with:
+        name: RAGCompanionAI-Installer-Script
+        path: dist/install_dependencies.sh
+        
+    - name: Create Release
+      if: github.event_name == 'release'
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          dist/RAGCompanionAI-Installer.dmg
+          dist/install_dependencies.sh
+        tag_name: ${{ github.ref }}
+        name: RAG Companion AI v${{ github.ref_name }}
+        body: |
+          ## RAG Companion AI for macOS
+          
+          ### What's New
+          - Standalone macOS application
+          - Local document search capabilities
+          - Tavily web search integration
+          - Complete dependency management
+          
+          ### Installation
+          1. Download and mount the DMG file
+          2. Drag the app to Applications folder
+          3. Run the installer script to setup dependencies
+          4. Launch RAG Companion AI
+          
+          ### Features
+          - 🤖 Local AI-powered document search
+          - 🌐 Web search integration
+          - 📁 Document upload and processing
+          - 💬 Chat interface
+          - 🔒 Secure authentication
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

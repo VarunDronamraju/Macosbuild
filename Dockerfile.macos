@@ -1,0 +1,29 @@
+# macOS build environment for RAG Companion AI
+FROM python:3.11-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    wget \
+    build-essential \
+    libssl-dev \
+    libffi-dev \
+    python3-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Install PyInstaller
+RUN pip install pyinstaller>=6.2.0
+
+# Set working directory
+WORKDIR /app
+
+# Copy application code
+COPY . .
+
+# Build command
+CMD ["python", "build_scripts/build_macos_standalone.py"]

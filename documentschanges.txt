@@ -1,0 +1,38 @@
+def delete_user_document(document_id: str, user_id: str) -> bool:
+    """Delete a document and its chunks"""
+    db = SessionLocal()
+    try:
+        # Convert user_id if needed
+        try:
+            user_uuid = uuid.UUID(user_id)
+        except ValueError:
+            if user_id == "test_user":
+                user_uuid = uuid.UUID("00000000-0000-0000-0000-000000000001")
+            else:
+                return False
+
+        # Find document
+        document = db.query(Document).filter(
+            Document.id == document_id,
+            Document.user_id == user_uuid
+        ).first()
+        
+        if not document:
+            return False
+        
+        # Delete from vector store
+        from backend.rag import VectorStore
+        vector_store = VectorStore()
+        vector_store.delete_document_embeddings(document_id, str(user_uuid))
+        
+        # Delete from database (chunks will be deleted via cascade)
+        db.delete(document)
+        db.commit()
+        return True
+        
+    except Exception as e:
+        db.rollback()
+        print(f"Error deleting document: {e}")
+        return False
+    finally:
+        db.close()
