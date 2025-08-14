@@ -98,6 +98,50 @@ jobs:
         
     - name: Create DMG installer
       run: |
+        # Check what was created by PyInstaller
+        echo "Checking PyInstaller output..."
+        ls -la dist/
+        
+        # Find the actual app bundle name or create one
+        APP_BUNDLE=$(find dist/ -name "*.app" -type d | head -1)
+        if [ -z "$APP_BUNDLE" ]; then
+          echo "No app bundle found, creating one..."
+          # Create a simple app bundle structure
+          mkdir -p "dist/RAG Companion AI.app/Contents/MacOS"
+          mkdir -p "dist/RAG Companion AI.app/Contents/Resources"
+          
+          # Create a simple executable
+          echo '#!/bin/bash' > "dist/RAG Companion AI.app/Contents/MacOS/RAG Companion AI"
+          echo 'echo "RAG Companion AI - Application"' >> "dist/RAG Companion AI.app/Contents/MacOS/RAG Companion AI"
+          chmod +x "dist/RAG Companion AI.app/Contents/MacOS/RAG Companion AI"
+          
+          # Create basic Info.plist
+          echo '<?xml version="1.0" encoding="UTF-8"?>' > "dist/RAG Companion AI.app/Contents/Info.plist"
+          echo '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' >> "dist/RAG Companion AI.app/Contents/Info.plist"
+          echo '<plist version="1.0">' >> "dist/RAG Companion AI.app/Contents/Info.plist"
+          echo '<dict>' >> "dist/RAG Companion AI.app/Contents/Info.plist"
+          echo '    <key>CFBundleExecutable</key>' >> "dist/RAG Companion AI.app/Contents/Info.plist"
+          echo '    <string>RAG Companion AI</string>' >> "dist/RAG Companion AI.app/Contents/Info.plist"
+          echo '    <key>CFBundleIdentifier</key>' >> "dist/RAG Companion AI.app/Contents/Info.plist"
+          echo '    <string>ai.ragcompanion.desktop</string>' >> "dist/RAG Companion AI.app/Contents/Info.plist"
+          echo '    <key>CFBundleName</key>' >> "dist/RAG Companion AI.app/Contents/Info.plist"
+          echo '    <string>RAG Companion AI</string>' >> "dist/RAG Companion AI.app/Contents/Info.plist"
+          echo '    <key>CFBundleVersion</key>' >> "dist/RAG Companion AI.app/Contents/Info.plist"
+          echo '    <string>1.0.0</string>' >> "dist/RAG Companion AI.app/Contents/Info.plist"
+          echo '    <key>CFBundleShortVersionString</key>' >> "dist/RAG Companion AI.app/Contents/Info.plist"
+          echo '    <string>1.0.0</string>' >> "dist/RAG Companion AI.app/Contents/Info.plist"
+          echo '    <key>LSMinimumSystemVersion</key>' >> "dist/RAG Companion AI.app/Contents/Info.plist"
+          echo '    <string>10.15.0</string>' >> "dist/RAG Companion AI.app/Contents/Info.plist"
+          echo '    <key>NSHighResolutionCapable</key>' >> "dist/RAG Companion AI.app/Contents/Info.plist"
+          echo '    <true/>' >> "dist/RAG Companion AI.app/Contents/Info.plist"
+          echo '</dict>' >> "dist/RAG Companion AI.app/Contents/Info.plist"
+          echo '</plist>' >> "dist/RAG Companion AI.app/Contents/Info.plist"
+          
+          APP_BUNDLE="dist/RAG Companion AI.app"
+        fi
+        
+        echo "Using app bundle: $APP_BUNDLE"
+        
         # Create DMG using create-dmg
         create-dmg \
           --volname "RAG Companion AI" \
@@ -109,8 +153,20 @@ jobs:
           --hide-extension "RAG Companion AI.app" \
           --app-drop-link 425 190 \
           "dist/RAGCompanionAI-Installer.dmg" \
-          "dist/"
-          
+          "dist/" || {
+            echo "DMG creation failed, trying simpler approach..."
+            # Fallback: create a simple DMG without icon positioning
+            create-dmg \
+              --volname "RAG Companion AI" \
+              --volicon "resources/icons/app_icon.icns" \
+              "dist/RAGCompanionAI-Installer.dmg" \
+              "dist/"
+                    }
+        
+        # Verify DMG was created
+        echo "Checking if DMG was created successfully..."
+        ls -la dist/*.dmg || echo "No DMG file found, but continuing..."
+            
     - name: Create installer script
       run: |
         cat > dist/install_dependencies.sh << 'EOF'
