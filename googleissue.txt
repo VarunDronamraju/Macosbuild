@@ -244,4 +244,3 @@ an unauthenticated state despite successful backend processing.
 
 The solution requires implementing proper token capture and authentication state
 management in the frontend application.
-

@@ -5,30 +5,16 @@ from pathlib import Path
 
 def create_env_file():
     """Create .env file from template"""
-    env_template = """# RAG Companion AI - Environment Configuration
-# Copy this file to .env and fill in your actual credentials
-
-# Database Configuration
-DATABASE_URL=postgresql://postgres:password@localhost:5433/ragbot
-
-# Vector Database Configuration
+    env_template = """DATABASE_URL=postgresql://postgres:qwerty12345@localhost:5433/ragbot
 QDRANT_URL=http://localhost:6333
 QDRANT_API_KEY=
-
-# External API Keys (Get these from respective services)
-TAVILY_API_KEY=your_tavily_api_key_here
-GOOGLE_CLIENT_ID=your_google_client_id_here
-GOOGLE_CLIENT_SECRET=your_google_client_secret_here
-
-# Application Security
-SECRET_KEY=your-secret-key-here-change-in-production
-
-# AI Model Configuration
+TAVILY_API_KEY=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
+GOOGLE_CLIENT_ID=778657599269-ouflj5id5r0bchm9a8lcko1tskkk4j4f.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=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
+SECRET_KEY=kJ8mN2pQ5sT9vY3wZ6aD1fH4jL7nR0uX8bE5hK2mP9sV6yB3eG1iL4oR7tA0cF3h
 EMBEDDING_MODEL=all-MiniLM-L6-v2
 LLM_MODEL=gemma3:1b-it-qat
 OLLAMA_URL=http://localhost:11434
-
-# Document Processing
 CHUNK_SIZE=512
 CHUNK_OVERLAP=50
 MAX_CONTEXT_LENGTH=4000
@@ -38,8 +24,7 @@ MAX_CONTEXT_LENGTH=4000
     if not env_path.exists():
         with open(env_path, 'w') as f:
             f.write(env_template)
-        print("✓ Created .env file with template")
-        print("⚠️  Please update .env file with your actual API keys")
+        print("✓ Created .env file with your credentials")
     else:
         print("✓ .env file already exists")
 
@@ -99,9 +84,7 @@ def main():
     print("✓ Environment setup completed successfully!")
     print("="*50)
     print("\nNext steps:")
-    print("1. Update .env file with your API keys:")
-    print("   - Get Tavily API key from: https://tavily.com/")
-    print("   - Get Google OAuth credentials from: https://console.cloud.google.com/")
+    print("1. Update .env file with your API keys")
     print("2. Run: python scripts/init_models.py")
     print("3. Run: python -m pytest tests/ -v")
     print("4. Run: python backend/main.py")

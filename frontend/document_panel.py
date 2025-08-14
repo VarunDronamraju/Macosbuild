@@ -37,11 +37,11 @@ class DocumentItem(QListWidgetItem):
         
         # Status emoji
         status_emoji = {
-            "completed": "✅",
-            "processing": "⏳",
-            "pending": "⏸️",
-            "failed": "❌"
-        }.get(status, "❓")
+            "completed": "âœ…",
+            "processing": "â³",
+            "pending": "â¸ï¸",
+            "failed": "âŒ"
+        }.get(status, "â“")
         
         self.setText(f"{status_emoji} {filename} ({file_type})")
         
@@ -154,41 +154,22 @@ class DocumentPanel(QWidget):
     def setup_ui(self):
         """Setup the user interface"""
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(15, 20, 15, 20)
-        
-        # Set sidebar background
-        self.setStyleSheet("""
-            QWidget {
-                background: rgba(255, 255, 255, 0.6);
-                border-right: 1px solid rgba(0, 0, 0, 0.05);
-            }
-        """)
+        layout.setContentsMargins(5, 5, 5, 5)
         
         # Header
         header_layout = QHBoxLayout()
         
-        title_label = QLabel("📄 Documents")
-        title_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #2d3748; margin: 5px;")
+        title_label = QLabel("ðŸ“„ Documents")
+        title_label.setStyleSheet("font-size: 16px; font-weight: bold; margin: 5px;")
         header_layout.addWidget(title_label)
         
         header_layout.addStretch()
         
         # Refresh button
-        self.refresh_button = QPushButton("🔄")
+        self.refresh_button = QPushButton("ðŸ”„")
         self.refresh_button.setToolTip("Refresh document list")
         self.refresh_button.clicked.connect(self.refresh_documents)
         self.refresh_button.setMaximumWidth(30)
-        self.refresh_button.setStyleSheet("""
-            QPushButton {
-                background: none;
-                border: none;
-                border-radius: 8px;
-                font-size: 16px;
-            }
-            QPushButton:hover {
-                background: rgba(120, 220, 180, 0.1);
-            }
-        """)
         header_layout.addWidget(self.refresh_button)
         
         layout.addLayout(header_layout)
@@ -200,24 +181,19 @@ class DocumentPanel(QWidget):
         # Drop zone
         self.drop_zone = QFrame()
         self.drop_zone.setFrameStyle(QFrame.Shape.StyledPanel)
-        self.drop_zone.setProperty("class", "drop-zone")
         self.drop_zone.setStyleSheet("""
             QFrame {
-                border: 2px dashed rgba(120, 220, 180, 0.5);
-                border-radius: 12px;
-                background-color: rgba(255, 255, 255, 0.6);
+                border: 2px dashed #aaa;
+                border-radius: 8px;
+                background-color: #f9f9f9;
                 min-height: 80px;
-            }
-            QFrame:hover {
-                border-color: #78dcb4;
-                background-color: rgba(120, 220, 180, 0.05);
             }
         """)
         
         drop_layout = QVBoxLayout(self.drop_zone)
-        drop_label = QLabel("📁 Drag & Drop Documents Here\nor click Upload to browse")
+        drop_label = QLabel("ðŸ“ Drag & Drop Documents Here\nor click Upload to browse")
         drop_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        drop_label.setStyleSheet("color: #4a5568; font-size: 14px;")
+        drop_label.setStyleSheet("color: #666; font-size: 14px;")
         drop_layout.addWidget(drop_label)
         
         upload_layout.addWidget(self.drop_zone)
@@ -225,7 +201,7 @@ class DocumentPanel(QWidget):
         # Upload buttons
         button_layout = QHBoxLayout()
         
-        self.upload_button = QPushButton("📤 Upload Files...")
+        self.upload_button = QPushButton("ðŸ“¤ Upload Files...")
         self.upload_button.clicked.connect(self.select_and_upload_files)
         button_layout.addWidget(self.upload_button)
         
@@ -253,7 +229,7 @@ class DocumentPanel(QWidget):
         # Document actions
         actions_layout = QHBoxLayout()
         
-        self.delete_button = QPushButton("🗑️ Delete")
+        self.delete_button = QPushButton("ðŸ—‘ï¸ Delete")
         self.delete_button.clicked.connect(self.delete_selected_document)
         self.delete_button.setEnabled(False)
         actions_layout.addWidget(self.delete_button)
@@ -266,51 +242,14 @@ class DocumentPanel(QWidget):
         
         # Status
         self.status_label = QLabel("Ready")
-        self.status_label.setStyleSheet("color: #718096; font-size: 12px; margin: 5px;")
+        self.status_label.setStyleSheet("color: #666; font-size: 12px; margin: 5px;")
         layout.addWidget(self.status_label)
         
         layout.addStretch()
-        
-        # Profile section
-        profile_section = QFrame()
-        profile_section.setFixedHeight(90)
-        profile_section.setStyleSheet("border-top: 1px solid rgba(0, 0, 0, 0.05);")
-        
-        profile_layout = QVBoxLayout()
-        profile_layout.setContentsMargins(15, 20, 15, 20)
-        profile_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        
-        profile_btn = QPushButton("U")
-        profile_btn.setFixedSize(50, 50)
-        profile_btn.setStyleSheet("""
-            QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
-                                          stop:0 #78dcb4, stop:1 #68d391);
-                border: none;
-                border-radius: 25px;
-                color: white;
-                font-size: 18px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                transform: translateY(-2px);
-            }
-        """)
-        profile_btn.clicked.connect(self.show_user_menu)
-        
-        profile_layout.addWidget(profile_btn)
-        profile_section.setLayout(profile_layout)
-        
-        layout.addWidget(profile_section)
     
     def setup_signals(self):
         """Setup signal connections"""
         pass
-    
-    def show_user_menu(self):
-        """Show user menu dialog"""
-        QMessageBox.information(self, "User Menu", 
-                               "User menu feature - Access your profile, settings, and preferences")
     
     def setup_drag_drop(self):
         """Setup drag and drop functionality"""
@@ -546,9 +485,9 @@ class DocumentPanel(QWidget):
         self.is_online = is_online
         
         if is_online:
-            self.status_label.setText("🟢 Online - Full functionality available")
+            self.status_label.setText("ðŸŸ¢ Online - Full functionality available")
         else:
-            self.status_label.setText("🔴 Offline - Using local storage")
+            self.status_label.setText("ðŸ”´ Offline - Using local storage")
         
         # Refresh documents with appropriate endpoint
         QTimer.singleShot(500, self.refresh_documents)
@@ -559,9 +498,9 @@ class DocumentPanel(QWidget):
         self.current_user = user_info
         
         if is_authenticated and user_info:
-            self.status_label.setText(f"👤 {user_info.get('name', 'User')}'s documents")
+            self.status_label.setText(f"ðŸ‘¤ {user_info.get('name', 'User')}'s documents")
         else:
-            self.status_label.setText("🔓 Local documents (not authenticated)")
+            self.status_label.setText("ðŸ”“ Local documents (not authenticated)")
         
         # Refresh documents with appropriate endpoint
         QTimer.singleShot(500, self.refresh_documents)

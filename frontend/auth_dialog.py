@@ -35,44 +35,44 @@ if HAS_WEB_ENGINE:
         """Custom web page for handling Google OAuth"""
         
         token_received = pyqtSignal(str)
-    
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.urlChanged.connect(self.handle_url_change)
-    
-    def handle_url_change(self, url):
-        """Handle URL changes to detect OAuth callback"""
-        url_string = url.toString()
-        logger.debug(f"URL changed: {url_string}")
         
-        # Look for access token in URL
-        if "access_token=" in url_string:
-            try:
-                # Extract token from URL fragment
-                fragment = url.fragment()
-                params = urllib.parse.parse_qs(fragment)
-                
-                if "access_token" in params:
-                    token = params["access_token"][0]
-                    self.token_received.emit(token)
-                    return
-            except Exception as e:
-                logger.error(f"Error extracting token from URL: {e}")
+        def __init__(self, parent=None):
+            super().__init__(parent)
+            self.urlChanged.connect(self.handle_url_change)
         
-        # Look for authorization code
-        if "code=" in url_string:
-            try:
-                parsed_url = urllib.parse.urlparse(url_string)
-                params = urllib.parse.parse_qs(parsed_url.query)
-                
-                if "code" in params:
-                    code = params["code"][0]
-                    # For simplicity, we'll use the code as token
-                    # In production, you'd exchange this for an access token
-                    self.token_received.emit(code)
-                    return
-            except Exception as e:
-                logger.error(f"Error extracting code from URL: {e}")
+        def handle_url_change(self, url):
+            """Handle URL changes to detect OAuth callback"""
+            url_string = url.toString()
+            logger.debug(f"URL changed: {url_string}")
+            
+            # Look for access token in URL
+            if "access_token=" in url_string:
+                try:
+                    # Extract token from URL fragment
+                    fragment = url.fragment()
+                    params = urllib.parse.parse_qs(fragment)
+                    
+                    if "access_token" in params:
+                        token = params["access_token"][0]
+                        self.token_received.emit(token)
+                        return
+                except Exception as e:
+                    logger.error(f"Error extracting token from URL: {e}")
+            
+            # Look for authorization code
+            if "code=" in url_string:
+                try:
+                    parsed_url = urllib.parse.urlparse(url_string)
+                    params = urllib.parse.parse_qs(parsed_url.query)
+                    
+                    if "code" in params:
+                        code = params["code"][0]
+                        # For simplicity, we'll use the code as token
+                        # In production, you'd exchange this for an access token
+                        self.token_received.emit(code)
+                        return
+                except Exception as e:
+                    logger.error(f"Error extracting code from URL: {e}")
 
 class AuthDialog(QDialog):
     """Authentication dialog for Google OAuth"""
@@ -274,9 +274,9 @@ class AuthDialog(QDialog):
             "Offline Mode",
             "Continue in offline mode?\n\n"
             "You will have limited functionality:\n"
-            "• No cloud authentication\n"
-            "• No web search enhancement\n"
-            "• Local documents only\n\n"
+            "â€¢ No cloud authentication\n"
+            "â€¢ No web search enhancement\n"
+            "â€¢ Local documents only\n\n"
             "You can login later from the Account menu.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
@@ -298,7 +298,7 @@ class SimpleAuthDialog(QDialog):
         self.setup_ui()
         self.setWindowTitle("Login to RAG Companion AI")
         self.setModal(True)
-        self.resize(500, 400)
+        self.resize(600, 500)
     
     def setup_ui(self):
         """Setup simplified UI"""
@@ -320,7 +320,7 @@ class SimpleAuthDialog(QDialog):
             "• Cloud synchronization\n"
             "• Enhanced web search\n"
             "• Session backup\n\n"
-            "🔒 <b>Without Login (Offline Mode):</b>\n"
+            "📱 <b>Without Login (Offline Mode):</b>\n"
             "• Local documents only\n"
             "• No cloud features\n"
             "• Basic functionality"
@@ -329,6 +329,51 @@ class SimpleAuthDialog(QDialog):
         message.setAlignment(Qt.AlignmentFlag.AlignLeft)
         message.setStyleSheet("margin: 20px; line-height: 1.4; background-color: #f5f5f5; padding: 15px; border-radius: 8px;")
         layout.addWidget(message)
+        
+        # Authentication Instructions Group
+        auth_group = QGroupBox("🔑 Authentication Steps")
+        auth_layout = QVBoxLayout(auth_group)
+        
+        # Step-by-step instructions
+        instructions = QLabel(
+            "<b>Step 1:</b> Click 'Open Browser' to start Google authentication<br>"
+            "<b>Step 2:</b> Complete the login process in your browser<br>"
+            "<b>Step 3:</b> After successful login, copy the token from the browser<br>"
+            "<b>Step 4:</b> Paste the token below and click 'Verify & Login'"
+        )
+        instructions.setWordWrap(True)
+        instructions.setStyleSheet("margin: 10px; line-height: 1.6; color: #333;")
+        auth_layout.addWidget(instructions)
+        
+        # Browser button
+        self.browser_button = QPushButton("🌐 Open Browser for Authentication")
+        self.browser_button.clicked.connect(self.open_browser_auth)
+        self.browser_button.setStyleSheet("padding: 12px 20px; font-size: 14px; font-weight: bold; background-color: #0078d4; color: white; border-radius: 6px;")
+        auth_layout.addWidget(self.browser_button)
+        
+        # Token input section
+        token_label = QLabel("🔑 <b>Authentication Token:</b>")
+        token_label.setStyleSheet("margin-top: 15px; font-weight: bold; color: #333;")
+        auth_layout.addWidget(token_label)
+        
+        token_help = QLabel("Paste the token from the browser after successful authentication:")
+        token_help.setStyleSheet("color: #666; font-size: 12px; margin-bottom: 5px;")
+        auth_layout.addWidget(token_help)
+        
+        self.token_input = QLineEdit()
+        self.token_input.setPlaceholderText("Paste your authentication token here...")
+        self.token_input.textChanged.connect(self.on_token_input_changed)
+        self.token_input.setStyleSheet("padding: 10px; border: 2px solid #ddd; border-radius: 6px; font-family: monospace;")
+        auth_layout.addWidget(self.token_input)
+        
+        # Verify button
+        self.verify_button = QPushButton("✅ Verify & Login")
+        self.verify_button.setEnabled(False)
+        self.verify_button.clicked.connect(self.verify_and_login)
+        self.verify_button.setStyleSheet("padding: 12px 20px; font-size: 14px; font-weight: bold; background-color: #28a745; color: white; border-radius: 6px; margin-top: 10px;")
+        auth_layout.addWidget(self.verify_button)
+        
+        layout.addWidget(auth_group)
         
         # Note about WebEngine
         note = QLabel(
@@ -342,21 +387,15 @@ class SimpleAuthDialog(QDialog):
         # Buttons
         button_layout = QHBoxLayout()
         
-        # Browser auth button
-        browser_button = QPushButton("🌐 Login with Browser")
-        browser_button.clicked.connect(self.open_browser_auth)
-        browser_button.setStyleSheet("padding: 10px 20px; font-size: 14px; font-weight: bold;")
-        button_layout.addWidget(browser_button)
-        
         button_layout.addStretch()
         
         offline_button = QPushButton("Continue Offline")
         offline_button.clicked.connect(self.accept)
-        offline_button.setStyleSheet("padding: 10px 20px; background-color: #6c757d;")
+        offline_button.setStyleSheet("padding: 10px 20px; background-color: #6c757d; color: white; border-radius: 6px;")
         button_layout.addWidget(offline_button)
-        
         cancel_button = QPushButton("Cancel")
         cancel_button.clicked.connect(self.reject)
+        cancel_button.setStyleSheet("padding: 10px 20px; background-color: #dc3545; color: white; border-radius: 6px;")
         button_layout.addWidget(cancel_button)
         
         layout.addLayout(button_layout)
@@ -382,21 +421,45 @@ class SimpleAuthDialog(QDialog):
         
         # Open browser
         import webbrowser
-        webbrowser.open(oauth_url)
-        
-        # Show simple completion dialog
-        QMessageBox.information(
-            self,
-            "Authentication in Progress",
-            "✅ Browser opened for Google authentication.\n\n"
-            "After completing authentication, the app will automatically\n"
-            "detect your login and enable full features.\n\n"
-            "Click 'Continue Offline' for now to use the app."
-        )
+        try:
+            webbrowser.open(oauth_url)
+            
+            # Show improved completion dialog
+            QMessageBox.information(
+                self,
+                "🌐 Authentication Started",
+                "✅ Browser opened for Google authentication.\n\n"
+                "📋 What to do next:\n"
+                "1. Complete the Google login in your browser\n"
+                "2. After success, you'll see a confirmation page\n"
+                "3. Look for the token in the browser (check localStorage or page source)\n"
+                "4. Copy the token and paste it in the field above\n"
+                "5. Click 'Verify & Login' to complete the process\n\n"
+                "💡 Tip: The token is usually displayed on the success page or can be found in the browser's developer tools."
+            )
+        except Exception as e:
+            QMessageBox.warning(
+                self,
+                "Browser Error",
+                f"Could not open browser automatically.\n\n"
+                f"Please manually open this URL:\n{oauth_url}\n\n"
+                f"Error: {str(e)}"
+            )
+    
+    def on_token_input_changed(self, text):
+        """Handle token input changes"""
+        self.verify_button.setEnabled(len(text.strip()) > 0)
+    
+    def verify_and_login(self):
+        """Verify manually entered token and login"""
+        token = self.token_input.text().strip()
+        if token:
+            self.google_token = token
+            self.accept()
     
     def get_google_token(self):
-        """Get the Google token (none for simplified dialog)"""
-        return None
+        """Get the Google token"""
+        return self.google_token
 
 # Factory function to create appropriate dialog
 def create_auth_dialog(parent=None):

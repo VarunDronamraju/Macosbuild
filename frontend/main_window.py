@@ -17,7 +17,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QThread, QMimeData
 from PyQt6.QtGui import (
     QAction, QFont, QPixmap, QIcon, QDragEnterEvent, QDropEvent,
-    QKeySequence, QPalette, QColor, QPainter, QBrush, QLinearGradient, QRadialGradient
+    QKeySequence, QPalette, QColor
 )
 
 from frontend.api_client import APIClient, StreamingQueryThread
@@ -27,33 +27,6 @@ from frontend.chat_widget import ChatWidget
 from frontend.document_panel import DocumentPanel
 
 logger = logging.getLogger(__name__)
-
-class GradientWidget(QWidget):
-    """Widget with gradient background"""
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-    
-    def paintEvent(self, event):
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        
-        # Main gradient background
-        gradient = QLinearGradient(0, 0, self.width(), self.height())
-        gradient.setColorAt(0, QColor(248, 255, 254))  # #f8fffe
-        gradient.setColorAt(1, QColor(240, 249, 247))  # #f0f9f7
-        painter.fillRect(self.rect(), QBrush(gradient))
-        
-        # Radial gradient patterns
-        radial1 = QRadialGradient(self.width() * 0.2, self.height() * 0.8, self.width() * 0.5)
-        radial1.setColorAt(0, QColor(120, 220, 180, 25))
-        radial1.setColorAt(1, QColor(120, 220, 180, 0))
-        painter.fillRect(self.rect(), QBrush(radial1))
-        
-        radial2 = QRadialGradient(self.width() * 0.8, self.height() * 0.2, self.width() * 0.5)
-        radial2.setColorAt(0, QColor(120, 220, 180, 20))
-        radial2.setColorAt(1, QColor(120, 220, 180, 0))
-        painter.fillRect(self.rect(), QBrush(radial2))
 
 class MainWindow(QMainWindow):
     """Main application window"""
@@ -101,21 +74,18 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(1200, 800)
         self.resize(1400, 900)
         
-        # Main widget with gradient background
-        main_widget = GradientWidget()
-        self.setCentralWidget(main_widget)
+        # Central widget
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
         
         # Main layout
-        main_layout = QVBoxLayout()
+        main_layout = QHBoxLayout(central_widget)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
         
-        # Header
-        header = self.createHeader()
-        main_layout.addWidget(header)
-        
-        # Content area with splitter
+        # Create splitter for resizable panels
         splitter = QSplitter(Qt.Orientation.Horizontal)
+        main_layout.addWidget(splitter)
         
         # Left panel - Document management
         self.document_panel = DocumentPanel(self.api_client, self.session_manager)
@@ -132,53 +102,6 @@ class MainWindow(QMainWindow):
         splitter.setSizes([350, 800])
         splitter.setStretchFactor(0, 0)  # Document panel fixed size
         splitter.setStretchFactor(1, 1)  # Chat widget grows
-        
-        main_layout.addWidget(splitter)
-        main_widget.setLayout(main_layout)
-    
-    def createHeader(self):
-        """Create the header with title and status"""
-        header = QFrame()
-        header.setFixedHeight(60)
-        header.setStyleSheet("""
-            QFrame {
-                background: rgba(255, 255, 255, 0.95);
-                border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-            }
-        """)
-        
-        layout = QHBoxLayout()
-        layout.setContentsMargins(20, 0, 20, 0)
-        
-        # Title
-        title = QLabel("RAG Companion AI")
-        title.setFont(QFont("Arial", 16, QFont.Weight.DemiBold))
-        title.setStyleSheet("color: #2d3748; letter-spacing: -0.5px;")
-        
-        # Connection status
-        status_widget = QWidget()
-        status_layout = QHBoxLayout()
-        status_layout.setContentsMargins(0, 0, 0, 0)
-        status_layout.setSpacing(8)
-        
-        # Status dot
-        status_dot = QLabel("●")
-        status_dot.setStyleSheet("color: #48bb78; font-size: 12px;")
-        
-        status_label = QLabel("Connected")
-        status_label.setFont(QFont("Arial", 11))
-        status_label.setStyleSheet("color: #48bb78;")
-        
-        status_layout.addWidget(status_dot)
-        status_layout.addWidget(status_label)
-        status_widget.setLayout(status_layout)
-        
-        layout.addWidget(title)
-        layout.addStretch()
-        layout.addWidget(status_widget)
-        
-        header.setLayout(layout)
-        return header
     
     def setup_menu_bar(self):
         """Setup the menu bar"""
@@ -501,14 +424,48 @@ class MainWindow(QMainWindow):
         if dialog.exec() == dialog.DialogCode.Accepted:
             token = getattr(dialog, 'get_google_token', lambda: None)()
             if token:
-                result = self.api_client.authenticate_google(token)
+                # Validate the JWT token from OAuth callback
+                result = self.api_client.validate_jwt_token(token)
                 if result["success"]:
-                    self.status_bar.showMessage("Login successful", 3000)
+                    # Update authentication state
+                    self.is_authenticated = True
+                    self.current_user = result.get("data", {}).get("user", {})
+                    
+                    # Update session manager with user info
+                    if self.current_user:
+                        self.session_manager.set_user_info(self.current_user)
+                    
+                    # Update UI components
+                    self.update_auth_state(True, self.current_user)
+                    
+                    # Update menu bar
+                    self.update_auth_menu()
+                    
+                    # Get user name safely
+                    user_name = self.current_user.get('name', 'User') if self.current_user else 'User'
+                    user_email = self.current_user.get('email', '') if self.current_user else ''
+                    
+                    self.status_bar.showMessage(f"Login successful! Welcome, {user_name}", 5000)
+                    
+                    # Show success message
+                    QMessageBox.information(
+                        self,
+                        "Login Successful",
+                        f"Welcome to RAG Companion AI!\n\n"
+                        f"You are now logged in as: {user_name}\n"
+                        f"Email: {user_email}\n\n"
+                        f"You now have access to:\n"
+                        f"• Personal document storage\n"
+                        f"• Cloud synchronization\n"
+                        f"• Enhanced web search\n"
+                        f"• Session backup"
+                    )
                 else:
                     QMessageBox.critical(
                         self, 
                         "Login Failed", 
-                        f"Failed to authenticate: {result['error']}"
+                        f"Failed to authenticate: {result.get('error', 'Unknown error')}\n\n"
+                        f"Please check your token and try again."
                     )
             else:
                 # User chose to continue offline
@@ -524,9 +481,23 @@ class MainWindow(QMainWindow):
         )
         
         if reply == QMessageBox.StandardButton.Yes:
+            # Clear authentication state
+            self.is_authenticated = False
+            self.current_user = None
+            
+            # Clear API client token
             self.api_client.set_auth_token(None)
+            
+            # Clear session manager user info
             self.session_manager.set_user_info({})
-            self.status_bar.showMessage("Logged out", 3000)
+            
+            # Update UI components
+            self.update_auth_state(False, None)
+            
+            # Update menu bar
+            self.update_auth_menu()
+            
+            self.status_bar.showMessage("Logged out successfully", 3000)
     
     def import_document(self):
         """Import document dialog"""
@@ -706,16 +677,3 @@ class MainWindow(QMainWindow):
             # Quit the application
             if self.app:
                 self.app.quit_application()
-    def check_auth_status(self):
-        """Check if user completed OAuth in browser"""
-        # Poll the backend to see if user is authenticated
-        try:
-            response = self.api_client.session.get(f"{self.api_client.base_url}/auth/me")
-            if response.status_code == 200:
-                user_info = response.json()
-                # User is authenticated, update UI
-                self.update_auth_state(True, user_info)
-                return True
-        except:
-            pass
-        return False

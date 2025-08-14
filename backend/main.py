@@ -15,7 +15,7 @@ from datetime import datetime
 
 logging.basicConfig(level=logging.DEBUG)
 
-from backend.database import create_tables, get_db, User
+from backend.database import create_tables, get_db, User, SessionLocal
 from backend.documents import DocumentProcessor, save_uploaded_file
 from backend.llm import RAGService
 from backend.auth import auth_service, get_current_user
@@ -54,27 +54,61 @@ async def google_auth(request: GoogleTokenRequest):
     """Authenticate with Google OAuth token (direct token)"""
     try:
         google_user_data = auth_service.verify_google_token(request.token)
-        user = auth_service.get_or_create_user(google_user_data)
+        user_data = auth_service.get_or_create_user(google_user_data)
         
         token = auth_service.create_jwt_token({
-            "user_id": user.id,
-            "email": user.email,
-            "name": user.name,
+            "user_id": user_data['id'],
+            "email": user_data['email'],
+            "name": user_data['name'],
             "picture": google_user_data.get("picture", "")
         })
         
         return TokenResponse(
             access_token=token,
             user={
-                "id": str(user.id),
-                "email": user.email,
-                "name": user.name,
+                "id": str(user_data['id']),
+                "email": user_data['email'],
+                "name": user_data['name'],
                 "picture": google_user_data.get("picture", ""),
-                "created_at": user.created_at.isoformat()
+                "created_at": user_data['created_at'].isoformat()
             }
         )
     except Exception as e:
         raise HTTPException(status_code=401, detail=f"Authentication failed: {str(e)}")
+
+@app.post("/auth/validate-jwt", response_model=TokenResponse)
+async def validate_jwt_token(request: GoogleTokenRequest):
+    """Validate JWT token and return user info"""
+    try:
+        # Validate the JWT token
+        payload = auth_service.validate_jwt_token(request.token)
+        
+        # Get user from database
+        db = SessionLocal()
+        try:
+            user = db.query(User).filter(User.id == payload["sub"]).first()
+            if not user:
+                raise HTTPException(status_code=404, detail="User not found")
+            
+            # Update last login
+            user.last_login = datetime.utcnow()
+            db.commit()
+            
+            return TokenResponse(
+                access_token=request.token,  # Return the same token
+                user={
+                    "id": str(user.id),
+                    "email": user.email,
+                    "name": user.name,
+                    "picture": payload.get("picture", ""),
+                    "created_at": user.created_at.isoformat()
+                }
+            )
+        finally:
+            db.close()
+            
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Token validation failed: {str(e)}")
 
 @app.get("/auth/callback")
 async def oauth_callback(code: str = None, error: str = None):
@@ -125,13 +159,13 @@ async def oauth_callback(code: str = None, error: str = None):
     try:
         # Exchange code for user data
         google_user_data = auth_service.exchange_code_for_token(code)
-        user = auth_service.get_or_create_user(google_user_data)
+        user_data = auth_service.get_or_create_user(google_user_data)
         
         # Create JWT token
         token = auth_service.create_jwt_token({
-            "user_id": user.id,
-            "email": user.email,
-            "name": user.name,
+            "user_id": user_data['id'],
+            "email": user_data['email'],
+            "name": user_data['name'],
             "picture": google_user_data.get("picture", "")
         })
         
@@ -168,6 +202,28 @@ async def oauth_callback(code: str = None, error: str = None):
                     margin: 20px 0;
                     border-left: 4px solid #28a745;
                 }}
+                .token-section {{
+                    margin: 20px 0;
+                    padding: 20px;
+                    background: #f8f9fa;
+                    border-radius: 8px;
+                    border: 2px solid #0078d4;
+                }}
+                .token-display {{
+                    display: flex;
+                    align-items: center;
+                    margin: 10px 0;
+                }}
+                .token-display code {{
+                    background: #e9ecef;
+                    padding: 10px;
+                    border-radius: 4px;
+                    font-family: monospace;
+                    font-size: 12px;
+                    word-break: break-all;
+                    flex: 1;
+                    margin-right: 10px;
+                }}
                 .countdown {{ 
                     margin-top: 20px; 
                     padding: 10px; 
@@ -185,23 +241,34 @@ async def oauth_callback(code: str = None, error: str = None):
                 
                 <div class="user-info">
                     <h4>Logged in as:</h4>
-                    <p><strong>{google_user_data.get('name', 'User')}</strong></p>
-                    <p>{google_user_data.get('email', '')}</p>
+                    <p><strong>{user_data['name']}</strong></p>
+                    <p>{user_data['email']}</p>
                 </div>
                 
                 <p>ðŸŽ‰ Authentication completed successfully!</p>
                 <p>The application will now have access to your personal documents and cloud features.</p>
                 
+                <div class="token-section">
+                    <h4>🔑 Authentication Token:</h4>
+                    <div class="token-display" id="token-display">
+                        <code>{token}</code>
+                        <button onclick="copyToken()" style="margin-left: 10px; padding: 5px 10px; background: #0078d4; color: white; border: none; border-radius: 4px; cursor: pointer;">Copy Token</button>
+                    </div>
+                    <p style="font-size: 12px; color: #666; margin-top: 10px;">
+                        Copy this token and paste it in the RAG Companion AI application to complete your login.
+                    </p>
+                </div>
+                
                 <div class="countdown" id="countdown">
-                    This window will close automatically in <span id="timer">8</span> seconds...
+                    This window will close automatically in <span id="timer">30</span> seconds...
                 </div>
                 
                 <!-- Hidden data for frontend to access -->
                 <div id="auth-data" class="hidden" 
                      data-token="{token}"
-                     data-user-id="{user.id}"
-                     data-user-name="{google_user_data.get('name', '')}"
-                     data-user-email="{google_user_data.get('email', '')}"
+                     data-user-id="{user_data['id']}"
+                     data-user-name="{user_data['name']}"
+                     data-user-email="{user_data['email']}"
                      data-user-picture="{google_user_data.get('picture', '')}">
                 </div>
             </div>
@@ -210,9 +277,9 @@ async def oauth_callback(code: str = None, error: str = None):
                 const authData = {{
                     token: "{token}",
                     user: {{
-                        id: "{user.id}",
-                        name: "{google_user_data.get('name', '')}",
-                        email: "{google_user_data.get('email', '')}",
+                        id: "{user_data['id']}",
+                        name: "{user_data['name']}",
+                        email: "{user_data['email']}",
                         picture: "{google_user_data.get('picture', '')}"
                     }}
                 }};
@@ -224,8 +291,25 @@ async def oauth_callback(code: str = None, error: str = None):
                     console.error('Failed to store auth data:', e);
                 }}
                 
+                // Copy token function
+                function copyToken() {{
+                    const token = "{token}";
+                    navigator.clipboard.writeText(token).then(() => {{
+                        const button = document.querySelector('#token-display button');
+                        button.textContent = 'Copied!';
+                        button.style.background = '#28a745';
+                        setTimeout(() => {{
+                            button.textContent = 'Copy Token';
+                            button.style.background = '#0078d4';
+                        }}, 2000);
+                    }}).catch(err => {{
+                        console.error('Failed to copy token:', err);
+                        alert('Failed to copy token. Please copy it manually.');
+                    }});
+                }}
+                
                 // Countdown timer
-                let timeLeft = 8;
+                let timeLeft = 30;
                 const timer = document.getElementById('timer');
                 const countdown = setInterval(() => {{
                     timeLeft--;

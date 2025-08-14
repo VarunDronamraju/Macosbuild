@@ -423,4 +423,3 @@ class SessionManager(QObject):
         """Force save current session state"""
         self.save_data()
         logger.info("Session data saved")
-        

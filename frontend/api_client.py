@@ -101,6 +101,27 @@ class APIClient(QObject):
             logger.error(f"Google authentication error: {e}")
             return {"success": False, "error": str(e)}
     
+    def validate_jwt_token(self, jwt_token: str) -> Dict:
+        """Validate JWT token from OAuth callback"""
+        try:
+            response = self.session.post(
+                f"{self.base_url}/auth/validate-jwt",
+                json={"token": jwt_token}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.set_auth_token(data["access_token"], data["user"])
+                return {"success": True, "data": data}
+            else:
+                error_msg = response.json().get("detail", "Token validation failed")
+                logger.error(f"JWT token validation failed: {error_msg}")
+                return {"success": False, "error": error_msg}
+                
+        except Exception as e:
+            logger.error(f"JWT token validation error: {e}")
+            return {"success": False, "error": str(e)}
+    
     def upload_document(self, file_path: str, filename: str = None) -> Dict:
         """Upload a document for processing"""
         if not filename:

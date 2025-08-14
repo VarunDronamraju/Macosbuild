@@ -130,31 +130,24 @@ class AuthService:
                     db.add(user)
                 
                 db.commit()
-                # CRITICAL FIX: Refresh the user object AFTER commit while session is still open
                 db.refresh(user)
             else:
                 # Update existing user's last login
                 user.last_login = datetime.utcnow()
                 user.name = google_user_data['name']  # Update name in case it changed
                 db.commit()
-                # CRITICAL FIX: Refresh the user object AFTER commit while session is still open
-                db.refresh(user)
             
-            # CRITICAL FIX: Create a detached copy of the user object before closing session
-            user_copy = User(
-                id=user.id,
-                google_id=user.google_id,
-                email=user.email,
-                name=user.name,
-                created_at=user.created_at,
-                last_login=user.last_login
-            )
+            # Extract user data before closing session to avoid SQLAlchemy errors
+            user_data = {
+                'id': user.id,
+                'google_id': user.google_id,
+                'email': user.email,
+                'name': user.name,
+                'created_at': user.created_at,
+                'last_login': user.last_login
+            }
             
-            return user_copy
-            
-        except Exception as e:
-            db.rollback()
-            raise e
+            return user_data
         finally:
             db.close()
 

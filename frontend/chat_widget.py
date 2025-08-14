@@ -44,7 +44,30 @@ class MessageWidget(QFrame):
     def setup_ui(self):
         """Setup message UI"""
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(10, 5, 10, 5)
+        
+        # Header with role and timestamp
+        header_layout = QHBoxLayout()
+        
+        role_label = QLabel(f"{'ðŸ§‘ You' if self.role == 'user' else 'ðŸ¤– Assistant'}")
+        role_label.setStyleSheet("font-weight: bold; color: #0078d4;" if self.role == 'user' else "font-weight: bold; color: #00b7c3;")
+        header_layout.addWidget(role_label)
+        
+        header_layout.addStretch()
+        
+        # Format timestamp
+        try:
+            dt = datetime.fromisoformat(self.timestamp.replace('Z', '+00:00'))
+            time_str = dt.strftime("%H:%M")
+        except:
+            time_str = ""
+        
+        if time_str:
+            time_label = QLabel(time_str)
+            time_label.setStyleSheet("color: #666; font-size: 12px;")
+            header_layout.addWidget(time_label)
+        
+        layout.addLayout(header_layout)
         
         # Message content
         content_widget = QTextBrowser()
@@ -66,6 +89,28 @@ class MessageWidget(QFrame):
         else:
             content_widget.setPlainText(self.content)
         
+        # Style the content widget
+        if self.role == 'user':
+            content_widget.setStyleSheet("""
+                QTextBrowser {
+                    background-color: #e3f2fd;
+                    border: 1px solid #bbdefb;
+                    border-radius: 8px;
+                    padding: 8px;
+                    color: #1565c0;
+                }
+            """)
+        else:
+            content_widget.setStyleSheet("""
+                QTextBrowser {
+                    background-color: #f1f8e9;
+                    border: 1px solid #c8e6c9;
+                    border-radius: 8px;
+                    padding: 8px;
+                    color: #2e7d32;
+                }
+            """)
+        
         layout.addWidget(content_widget)
         
         # Add sources if available (only for assistant messages)
@@ -73,33 +118,29 @@ class MessageWidget(QFrame):
             sources_widget = self.create_sources_widget()
             layout.addWidget(sources_widget)
         
-        # Set frame style based on role
-        if self.role == 'user':
-            self.setProperty("class", "user-message")
-        else:
-            self.setProperty("class", "assistant-message")
-        
-        self.setStyleSheet("QFrame { border: none; margin: 4px; }")
+        # Set frame style
+        self.setFrameStyle(QFrame.Shape.Box)
+        self.setStyleSheet("QFrame { border: none; margin: 2px; }")
     
     def create_sources_widget(self) -> QWidget:
         """Create sources display widget"""
         sources_frame = QFrame()
         sources_frame.setStyleSheet("""
             QFrame {
-                background-color: rgba(255, 255, 255, 0.8);
-                border: 1px solid rgba(0, 0, 0, 0.05);
-                border-radius: 8px;
-                margin-top: 8px;
-                padding: 8px;
+                background-color: #f5f5f5;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                margin-top: 5px;
+                padding: 5px;
             }
         """)
         
         sources_layout = QVBoxLayout(sources_frame)
-        sources_layout.setContentsMargins(8, 8, 8, 8)
+        sources_layout.setContentsMargins(8, 5, 8, 5)
         
         # Sources header
-        header_label = QLabel("📚 Sources:")
-        header_label.setStyleSheet("font-weight: bold; color: #4a5568; font-size: 12px;")
+        header_label = QLabel("ðŸ“š Sources:")
+        header_label.setStyleSheet("font-weight: bold; color: #666; font-size: 12px;")
         sources_layout.addWidget(header_label)
         
         # List sources
@@ -110,15 +151,15 @@ class MessageWidget(QFrame):
                 # Local document source
                 preview = source.get("preview", "").strip()
                 score = source.get("score", 0)
-                source_text = f"📄 Local Document (Match: {score:.1%})\n  \"{preview}\""
+                source_text = f"ðŸ“„ Local Document (Match: {score:.1%})\n  \"{preview}\""
             elif "title" in source and "url" in source:
                 # Web search source
                 title = source.get("title", "Web Result")
                 url = source.get("url", "")
-                source_text = f"🌐 Web Search: {title}\n  {url}"
+                source_text = f"ðŸŒ Web Search: {title}\n  {url}"
             else:
                 # Fallback
-                source_text = f"📖 Source {i+1}: {str(source)[:100]}..."
+                source_text = f"ðŸ“– Source {i+1}: {str(source)[:100]}..."
             
             source_label.setText(source_text)
             source_label.setStyleSheet("color: #555; font-size: 11px; margin: 2px 0;")
@@ -245,7 +286,7 @@ class ChatWidget(QWidget):
         # Header
         header_layout = QHBoxLayout()
         
-        title_label = QLabel("💬 Chat Assistant")
+        title_label = QLabel("ðŸ’¬ Chat Assistant")
         title_label.setStyleSheet("font-size: 16px; font-weight: bold; margin: 5px;")
         header_layout.addWidget(title_label)
         
@@ -290,97 +331,28 @@ class ChatWidget(QWidget):
         layout.addWidget(chat_group)
         
         # Input area
-        input_area = QFrame()
-        input_area.setFixedHeight(80)
-        input_area.setStyleSheet("""
-            QFrame {
-                background: rgba(255, 255, 255, 0.5);
-                border-top: 1px solid rgba(0, 0, 0, 0.05);
-            }
-        """)
-        
         input_layout = QVBoxLayout()
-        input_layout.setContentsMargins(20, 20, 20, 20)
         
         # Status label
         self.status_label = QLabel("Ready to chat")
-        self.status_label.setStyleSheet("color: #718096; font-size: 12px; margin: 2px;")
+        self.status_label.setStyleSheet("color: #666; font-size: 12px; margin: 2px;")
         input_layout.addWidget(self.status_label)
         
-        # Message input wrapper
-        input_wrapper = QFrame()
-        input_wrapper.setStyleSheet("""
-            QFrame {
-                background: white;
-                border: 1px solid rgba(0, 0, 0, 0.08);
-                border-radius: 12px;
-                padding: 12px 16px;
-            }
-        """)
-        
+        # Message input
         message_layout = QHBoxLayout()
-        message_layout.setContentsMargins(16, 12, 16, 12)
-        message_layout.setSpacing(12)
-        
-        # Document button
-        doc_btn = QPushButton("📄")
-        doc_btn.setFixedSize(32, 32)
-        doc_btn.setStyleSheet("""
-            QPushButton {
-                background: none;
-                border: none;
-                border-radius: 8px;
-                font-size: 16px;
-            }
-            QPushButton:hover {
-                background: rgba(120, 220, 180, 0.1);
-            }
-        """)
-        doc_btn.clicked.connect(self.add_document)
         
         self.message_input = QLineEdit()
         self.message_input.setPlaceholderText("Type your message here...")
-        self.message_input.setStyleSheet("""
-            QLineEdit {
-                border: none;
-                font-size: 12px;
-                background: transparent;
-                color: #2d3748;
-            }
-            QLineEdit::placeholder {
-                color: #a0aec0;
-            }
-        """)
         self.message_input.returnPressed.connect(self.send_message)
-        
-        # Send button
-        self.send_button = QPushButton("➤")
-        self.send_button.setFixedSize(32, 32)
-        self.send_button.setStyleSheet("""
-            QPushButton {
-                background: none;
-                border: none;
-                border-radius: 8px;
-                font-size: 16px;
-            }
-            QPushButton:hover {
-                background: rgba(120, 220, 180, 0.1);
-                color: #78dcb4;
-            }
-        """)
-        self.send_button.clicked.connect(self.send_message)
-        
-        message_layout.addWidget(doc_btn)
         message_layout.addWidget(self.message_input)
+        
+        self.send_button = QPushButton("Send")
+        self.send_button.clicked.connect(self.send_message)
+        self.send_button.setStyleSheet("padding: 8px 16px; font-weight: bold;")
         message_layout.addWidget(self.send_button)
         
-        # Store document button reference
-        self.doc_button = doc_btn
-        
-        input_wrapper.setLayout(message_layout)
-        input_layout.addWidget(input_wrapper)
-        input_area.setLayout(input_layout)
-        layout.addWidget(input_area)
+        input_layout.addLayout(message_layout)
+        layout.addLayout(input_layout)
     
     def setup_signals(self):
         """Setup signal connections"""
@@ -659,7 +631,7 @@ class ChatWidget(QWidget):
         self.message_input.setEnabled(not processing)
         
         if processing:
-            self.status_label.setText("🤔 Processing your request...")
+            self.status_label.setText("ðŸ¤” Processing your request...")
             self.send_button.setText("Processing...")
         else:
             self.status_label.setText("Ready to chat")
@@ -698,9 +670,9 @@ class ChatWidget(QWidget):
         self.is_online = is_online
         
         if is_online:
-            self.status_label.setText("🟢 Online - Ready to chat")
+            self.status_label.setText("ðŸŸ¢ Online - Ready to chat")
         else:
-            self.status_label.setText("🔴 Offline - Limited functionality")
+            self.status_label.setText("ðŸ”´ Offline - Limited functionality")
         
         # Update input availability
         if not is_online and not self.is_authenticated:
@@ -713,12 +685,12 @@ class ChatWidget(QWidget):
         self.current_user = user_info
         
         if is_authenticated and user_info:
-            self.status_label.setText(f"👤 Logged in as {user_info.get('name', 'User')} - Ready to chat")
+            self.status_label.setText(f"ðŸ‘¤ Logged in as {user_info.get('name', 'User')} - Ready to chat")
         else:
             if self.is_online:
-                self.status_label.setText("🔓 Not logged in - Using offline mode")
+                self.status_label.setText("ðŸ”“ Not logged in - Using offline mode")
             else:
-                self.status_label.setText("🔴 Offline mode")
+                self.status_label.setText("ðŸ”´ Offline mode")
     
     def refresh_sessions(self):
         """Refresh the sessions list"""
@@ -745,11 +717,6 @@ class ChatWidget(QWidget):
     def on_session_deleted(self, session_id: str):
         """Handle session deletion"""
         self.session_list.remove_session(session_id)
-    
-    def add_document(self):
-        """Add document to current session"""
-        QMessageBox.information(self, "Document Upload", 
-                               "Document upload feature - Select files to add to your knowledge base")
     
     def get_current_session_info(self) -> Dict:
         """Get information about current session"""

@@ -460,4 +460,3 @@ Key debug points:
 This overview covers all major components responsible for query response generation
 in the RAG Companion AI system. Each component has specific responsibilities and
 contributes to the overall quality and reliability of the RAG responses.
-
