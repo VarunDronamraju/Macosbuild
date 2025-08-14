@@ -133,13 +133,13 @@ jobs:
         chmod +x dist/install_dependencies.sh
         
     - name: Upload DMG artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: RAGCompanionAI-macOS-DMG
         path: dist/RAGCompanionAI-Installer.dmg
         
     - name: Upload installer script
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: RAGCompanionAI-Installer-Script
         path: dist/install_dependencies.sh
