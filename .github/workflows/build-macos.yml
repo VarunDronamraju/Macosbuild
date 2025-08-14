@@ -66,8 +66,11 @@ jobs:
         pwd
         ls -la dist_configs/
         ls -la
-        # Use absolute path to ensure PyInstaller finds the spec file
-        python -m PyInstaller --clean --noconfirm "$(pwd)/dist_configs/pyinstaller_macos.spec"
+        # Copy spec file to current directory to avoid path issues
+        cp dist_configs/pyinstaller_macos.spec ./pyinstaller_macos.spec
+        ls -la *.spec
+        # Run PyInstaller with the local spec file
+        python -m PyInstaller --clean --noconfirm pyinstaller_macos.spec
         
     - name: Create DMG installer
       run: |
