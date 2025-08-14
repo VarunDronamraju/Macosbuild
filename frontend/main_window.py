@@ -488,7 +488,7 @@ class MainWindow(QMainWindow):
             # Clear API client token
             self.api_client.set_auth_token(None)
             
-            # Clear session manager user info
+            # Clear session manager user info (this will also clear sessions)
             self.session_manager.set_user_info({})
             
             # Update UI components
@@ -644,6 +644,10 @@ class MainWindow(QMainWindow):
     
     def closeEvent(self, event):
         """Handle window close event"""
+        # Clean up offline data before closing
+        if self.session_manager:
+            self.session_manager.cleanup_offline_data()
+        
         # Check if system tray is available
         if self.app and hasattr(self.app, 'tray_icon') and self.app.tray_icon and self.app.tray_icon.isVisible():
             # Hide to system tray instead of closing

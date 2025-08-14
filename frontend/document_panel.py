@@ -110,7 +110,13 @@ class UploadThread(QThread):
                 if result["success"]:
                     self.upload_completed.emit(filename, result)
                 else:
-                    self.upload_failed.emit(filename, result["error"])
+                    # Ensure error is a string
+                    error_msg = result.get("error", "Unknown error")
+                    if isinstance(error_msg, list):
+                        error_msg = "; ".join(error_msg)
+                    elif not isinstance(error_msg, str):
+                        error_msg = str(error_msg)
+                    self.upload_failed.emit(filename, error_msg)
                     
             except Exception as e:
                 self.upload_failed.emit(filename, str(e))
@@ -498,9 +504,12 @@ class DocumentPanel(QWidget):
         self.current_user = user_info
         
         if is_authenticated and user_info:
-            self.status_label.setText(f"ðŸ‘¤ {user_info.get('name', 'User')}'s documents")
+            self.status_label.setText(f"ðŸ'¤ {user_info.get('name', 'User')}'s documents")
         else:
-            self.status_label.setText("ðŸ”“ Local documents (not authenticated)")
+            self.status_label.setText("ðŸ"" Offline mode - No documents available")
+            # Clear documents in offline mode
+            self.documents = []
+            self.update_document_list()
         
         # Refresh documents with appropriate endpoint
         QTimer.singleShot(500, self.refresh_documents)

@@ -388,13 +388,25 @@ async def upload_document(
     current_user: User = Depends(get_current_user)
 ):
     """Upload and process document (authenticated)"""
-    if not file.filename:
+    print("=" * 50)
+    print("UPLOAD REQUEST RECEIVED")
+    print("=" * 50)
+    print(f"Upload request received - filename: {file.filename if file else 'None'}")
+    print(f"Current user: {current_user.email if current_user else 'None'}")
+    print(f"File content type: {file.content_type if file else 'None'}")
+    print(f"File size: {file.size if file else 'None'}")
+    print(f"Request headers: {file.headers if file else 'None'}")
+    print("=" * 50)
+    
+    if not file or not file.filename:
         raise HTTPException(status_code=400, detail="No file provided")
     
     try:
         file_content = await file.read()
         file_path = save_uploaded_file(file_content, file.filename)
         document_id = doc_processor.process_document(file_path, file.filename, str(current_user.id))
+        
+        print(f"Document processed successfully - ID: {document_id}")
         
         return {
             "message": "Document uploaded and processed successfully",

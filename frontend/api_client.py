@@ -5,6 +5,7 @@ Handles authentication, document management, and chat functionality
 
 import requests
 import json
+import os
 from typing import Dict, List, Optional, Iterator, Any
 from pathlib import Path
 import logging
@@ -128,17 +129,45 @@ class APIClient(QObject):
             filename = Path(file_path).name
         
         try:
+            # Check if file exists
+            if not os.path.exists(file_path):
+                error_msg = f"File not found: {file_path}"
+                logger.error(error_msg)
+                return {"success": False, "error": error_msg}
+            
+            print(f"File exists: {file_path}")
+            print(f"File size: {os.path.getsize(file_path)} bytes")
+            
             with open(file_path, 'rb') as file:
-                files = {'file': (filename, file, 'application/octet-stream')}
+                # Determine content type based on file extension
+                content_type = 'application/octet-stream'
+                if filename.lower().endswith('.txt'):
+                    content_type = 'text/plain'
+                elif filename.lower().endswith('.pdf'):
+                    content_type = 'application/pdf'
+                elif filename.lower().endswith(('.doc', '.docx')):
+                    content_type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
                 
-                # Remove JSON content-type header for file upload
-                headers = {k: v for k, v in self.session.headers.items() 
-                          if k.lower() != 'content-type'}
+                files = {'file': (filename, file, content_type)}
                 
-                response = self.session.post(
+                # Create a clean session for file upload to avoid header conflicts
+                upload_session = requests.Session()
+                
+                # Add authorization header if available
+                if self.access_token:
+                    upload_session.headers['Authorization'] = f'Bearer {self.access_token}'
+                    print(f"✅ Using auth token: {self.access_token[:20]}...")
+                else:
+                    print("❌ No auth token available")
+                
+                print(f"Uploading file: {filename}")
+                print(f"Content type: {content_type}")
+                print(f"Headers: {upload_session.headers}")
+                print(f"Files dict: {files}")
+                
+                response = upload_session.post(
                     f"{self.base_url}/upload",
-                    files=files,
-                    headers=headers
+                    files=files
                 )
             
             if response.status_code == 200:
@@ -146,7 +175,19 @@ class APIClient(QObject):
                 logger.info(f"Document uploaded successfully: {filename}")
                 return {"success": True, "data": data}
             else:
-                error_msg = response.json().get("detail", "Upload failed")
+                try:
+                    error_detail = response.json()
+                    print(f"Error response: {error_detail}")
+                    
+                    if isinstance(error_detail, list):
+                        # Handle validation error list
+                        error_msg = "; ".join([f"{err.get('loc', [])}: {err.get('msg', 'Unknown error')}" for err in error_detail])
+                    else:
+                        error_msg = error_detail.get("detail", "Upload failed")
+                except Exception as parse_error:
+                    print(f"Error parsing response: {parse_error}")
+                    error_msg = f"Upload failed with status {response.status_code}"
+                
                 logger.error(f"Document upload failed: {error_msg}")
                 return {"success": False, "error": error_msg}
                 
