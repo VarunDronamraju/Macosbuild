@@ -80,13 +80,15 @@ jobs:
 
     - name: Download and setup Ollama
       run: |
-        # Download Ollama
-        curl -fsSL https://ollama.ai/download/ollama-darwin-amd64 -o ollama
-        chmod +x ollama
-        sudo mv ollama /usr/local/bin/
+        # Download and install Ollama
+        curl -fsSL https://ollama.ai/download/Ollama.dmg -o Ollama.dmg
+        hdiutil attach Ollama.dmg
+        cp -R "/Volumes/Ollama/Ollama.app" /Applications/
+        hdiutil detach "/Volumes/Ollama"
+        rm Ollama.dmg
         
         # Start Ollama service
-        ollama serve &
+        open -a Ollama
         sleep 10
         
         # Pull required models
@@ -364,15 +366,17 @@ jobs:
         
         # Download and install Ollama
         echo "🤖 Installing Ollama..."
-        curl -fsSL https://ollama.ai/download/ollama-darwin-amd64 -o ollama
-        chmod +x ollama
-        sudo mv ollama /usr/local/bin/
+        curl -fsSL https://ollama.ai/download/Ollama.dmg -o Ollama.dmg
+        hdiutil attach Ollama.dmg
+        cp -R "/Volumes/Ollama/Ollama.app" /Applications/
+        hdiutil detach "/Volumes/Ollama"
+        rm Ollama.dmg
         
         # Start services
         echo "🚀 Starting services..."
         brew services start postgresql@14
         qdrant &
-        ollama serve &
+        open -a Ollama
         
         # Wait for services to start
         echo "⏳ Waiting for services to start..."
