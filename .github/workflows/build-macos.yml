@@ -92,15 +92,22 @@ jobs:
         }
         
         # Start Ollama service
-        open -a "/Applications/Ollama.app" || {
-          echo "Failed to start Ollama app, trying command line..."
-          ollama serve &
-        }
+        if [ -f "/Applications/Ollama.app/Contents/Resources/ollama" ]; then
+          echo "Starting Ollama from app bundle..."
+          "/Applications/Ollama.app/Contents/Resources/ollama" serve &
+        else
+          echo "Opening Ollama app..."
+          open -a "/Applications/Ollama.app" &
+        fi
         sleep 10
         
         # Pull required models
-        ollama pull gemma3:1b-it-qat
-        ollama pull all-MiniLM-L6-v2
+        if [ -f "/Applications/Ollama.app/Contents/Resources/ollama" ]; then
+          "/Applications/Ollama.app/Contents/Resources/ollama" pull gemma3:1b-it-qat
+          "/Applications/Ollama.app/Contents/Resources/ollama" pull all-MiniLM-L6-v2
+        else
+          echo "Warning: Ollama binary not found, models may not be available"
+        fi
 
     - name: Setup Qdrant
       run: |
@@ -384,10 +391,17 @@ jobs:
         echo "🚀 Starting services..."
         brew services start postgresql@14
         qdrant &
-        open -a "/Applications/Ollama.app" || {
-          echo "Failed to start Ollama app, trying command line..."
-          ollama serve &
-        }
+        
+        # Start Ollama - use the binary from the app bundle
+        echo "Starting Ollama..."
+        if [ -f "/Applications/Ollama.app/Contents/Resources/ollama" ]; then
+          echo "Using Ollama binary from app bundle..."
+          "/Applications/Ollama.app/Contents/Resources/ollama" serve &
+        else
+          echo "Ollama binary not found in app bundle, trying to open app..."
+          open -a "/Applications/Ollama.app" &
+          sleep 5
+        fi
         
         # Wait for services to start
         echo "⏳ Waiting for services to start..."
@@ -395,8 +409,12 @@ jobs:
         
         # Pull AI models
         echo "📥 Downloading AI models (this may take a while)..."
-        ollama pull gemma3:1b-it-qat
-        ollama pull all-MiniLM-L6-v2
+        if [ -f "/Applications/Ollama.app/Contents/Resources/ollama" ]; then
+          "/Applications/Ollama.app/Contents/Resources/ollama" pull gemma3:1b-it-qat
+          "/Applications/Ollama.app/Contents/Resources/ollama" pull all-MiniLM-L6-v2
+        else
+          echo "Warning: Ollama binary not found, models may not be available"
+        fi
         
         # Install the application
         echo "📱 Installing RAG Companion AI..."
@@ -474,7 +492,7 @@ jobs:
            ```bash
            brew services restart postgresql@14
            pkill qdrant && qdrant &
-           pkill ollama && ollama serve &
+           pkill ollama && "/Applications/Ollama.app/Contents/Resources/ollama" serve &
            ```
 
         3. **Check logs:**
