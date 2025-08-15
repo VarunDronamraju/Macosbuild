@@ -33,7 +33,7 @@ jobs:
         python-version: ${{ env.PYTHON_VERSION }}
 
     - name: Cache Python dependencies
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/.cache/pip
         key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
@@ -112,12 +112,12 @@ jobs:
         OLLAMA_URL=http://localhost:11434
         
         # External APIs
-        TAVILY_API_KEY=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
-        GOOGLE_CLIENT_ID=778657599269-ouflj5id5r0bchm9a8lcko1tskkk4j4f.apps.googleusercontent.com
-        GOOGLE_CLIENT_SECRET=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
+        TAVILY_API_KEY=${{ secrets.TAVILY_API_KEY }}
+        GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
+        GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
         
         # Application
-        SECRET_KEY=kJ8mN2pQ5sT9vY3wZ6aD1fH4jL7nR0uX8bE5hK2mP9sV6yB3eG1iL4oR7tA0cF3h
+        SECRET_KEY=${{ secrets.SECRET_KEY }}
         UPLOAD_DIR=uploads
         CHUNK_SIZE=512
         CHUNK_OVERLAP=50
@@ -369,7 +369,7 @@ jobs:
         EOF
 
     - name: Upload artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: RAGCompanionAI-macOS-${{ github.run_number }}
         path: |
