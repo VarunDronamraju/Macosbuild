@@ -22,7 +22,8 @@ httpx==0.25.2
 PyJWT==2.8.0
 google-auth==2.24.0
 google-auth-oauthlib==1.1.0
-google-auth-httplib2==0.1.1PyQt6==6.6.0
+google-auth-httplib2==0.1.1
+PyQt6==6.6.0
 PyQt6-Qt6==6.6.0
 PyQt6-sip==13.6.0
 aiohttp==3.9.1

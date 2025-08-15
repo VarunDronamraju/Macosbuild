@@ -144,9 +144,9 @@ class MacOSSetup:
         arch = arch_result.stdout.strip() if arch_result.returncode == 0 else "x86_64"
         
         if arch in ["arm64", "aarch64"]:
-            qdrant_url = "https://github.com/qdrant/qdrant/releases/download/v1.7.4/qdrant-v1.7.4-aarch64-apple-darwin.tar.gz"
+            qdrant_url = "https://github.com/qdrant/qdrant/releases/download/v1.15.3/qdrant-aarch64-apple-darwin.tar.gz"
         else:
-            qdrant_url = "https://github.com/qdrant/qdrant/releases/download/v1.7.4/qdrant-v1.7.4-x86_64-apple-darwin.tar.gz"
+            qdrant_url = "https://github.com/qdrant/qdrant/releases/download/v1.15.3/qdrant-x86_64-apple-darwin.tar.gz"
         
         self.log(f"Installing Qdrant for architecture: {arch}")
         self.run_command(f"curl -fsSL {qdrant_url} -o qdrant.tar.gz")
