@@ -111,7 +111,7 @@ jobs:
         
         # Install embedding model
         echo "📥 Installing embedding model..."
-        pip install sentence-transformers
+        pip install "huggingface-hub<0.20.0" sentence-transformers
         python -c "import sentence_transformers; model = sentence_transformers.SentenceTransformer('all-MiniLM-L6-v2'); print('✅ Downloaded all-MiniLM-L6-v2 embedding model')"
 
     - name: Setup Qdrant
@@ -423,7 +423,7 @@ jobs:
         
         # Install embedding model
         echo "📥 Installing embedding model..."
-        pip install sentence-transformers
+        pip install "huggingface-hub<0.20.0" sentence-transformers
         python -c "import sentence_transformers; model = sentence_transformers.SentenceTransformer('all-MiniLM-L6-v2'); print('✅ Downloaded all-MiniLM-L6-v2 embedding model')"
         
         # Install the application
