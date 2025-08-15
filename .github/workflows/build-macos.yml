@@ -83,12 +83,19 @@ jobs:
         # Download and install Ollama
         curl -fsSL https://ollama.ai/download/Ollama.dmg -o Ollama.dmg
         hdiutil attach Ollama.dmg
-        cp -R "/Volumes/Ollama/Ollama.app" /Applications/
+        ls -la "/Volumes/Ollama/"
+        cp -R "/Volumes/Ollama/"* /Applications/
         hdiutil detach "/Volumes/Ollama"
-        rm Ollama.dmg
+        rm Ollama.dmg || {
+          echo "DMG installation failed, trying Homebrew..."
+          brew install ollama
+        }
         
         # Start Ollama service
-        open -a Ollama
+        open -a "/Applications/Ollama.app" || {
+          echo "Failed to start Ollama app, trying command line..."
+          ollama serve &
+        }
         sleep 10
         
         # Pull required models
@@ -368,7 +375,8 @@ jobs:
         echo "🤖 Installing Ollama..."
         curl -fsSL https://ollama.ai/download/Ollama.dmg -o Ollama.dmg
         hdiutil attach Ollama.dmg
-        cp -R "/Volumes/Ollama/Ollama.app" /Applications/
+        ls -la "/Volumes/Ollama/"
+        cp -R "/Volumes/Ollama/"* /Applications/
         hdiutil detach "/Volumes/Ollama"
         rm Ollama.dmg
         
@@ -376,7 +384,10 @@ jobs:
         echo "🚀 Starting services..."
         brew services start postgresql@14
         qdrant &
-        open -a Ollama
+        open -a "/Applications/Ollama.app" || {
+          echo "Failed to start Ollama app, trying command line..."
+          ollama serve &
+        }
         
         # Wait for services to start
         echo "⏳ Waiting for services to start..."
