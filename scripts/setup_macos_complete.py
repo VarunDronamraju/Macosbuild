@@ -139,7 +139,17 @@ class MacOSSetup:
         self.log("Installing Qdrant...")
         
         # Install Qdrant directly from official source
-        self.run_command("curl -fsSL https://github.com/qdrant/qdrant/releases/download/v1.7.4/qdrant-v1.7.4-x86_64-apple-darwin.tar.gz -o qdrant.tar.gz")
+        # Detect architecture and download appropriate version
+        arch_result = self.run_command("uname -m", check=False)
+        arch = arch_result.stdout.strip() if arch_result.returncode == 0 else "x86_64"
+        
+        if arch in ["arm64", "aarch64"]:
+            qdrant_url = "https://github.com/qdrant/qdrant/releases/download/v1.7.4/qdrant-v1.7.4-aarch64-apple-darwin.tar.gz"
+        else:
+            qdrant_url = "https://github.com/qdrant/qdrant/releases/download/v1.7.4/qdrant-v1.7.4-x86_64-apple-darwin.tar.gz"
+        
+        self.log(f"Installing Qdrant for architecture: {arch}")
+        self.run_command(f"curl -fsSL {qdrant_url} -o qdrant.tar.gz")
         self.run_command("tar -xzf qdrant.tar.gz")
         self.run_command("sudo mv qdrant /usr/local/bin/")
         self.run_command("chmod +x /usr/local/bin/qdrant")

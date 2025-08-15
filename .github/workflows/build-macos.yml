@@ -52,7 +52,15 @@ jobs:
         brew install postgresql@14
         
         # Install Qdrant directly from official source
-        curl -fsSL https://github.com/qdrant/qdrant/releases/download/v1.7.4/qdrant-v1.7.4-x86_64-apple-darwin.tar.gz -o qdrant.tar.gz
+        # Detect architecture and download appropriate version
+        ARCH=$(uname -m)
+        if [ "$ARCH" = "arm64" ] || [ "$ARCH" = "aarch64" ]; then
+          QDRANT_URL="https://github.com/qdrant/qdrant/releases/download/v1.7.4/qdrant-v1.7.4-aarch64-apple-darwin.tar.gz"
+        else
+          QDRANT_URL="https://github.com/qdrant/qdrant/releases/download/v1.7.4/qdrant-v1.7.4-x86_64-apple-darwin.tar.gz"
+        fi
+        echo "Installing Qdrant for architecture: $ARCH"
+        curl -fsSL "$QDRANT_URL" -o qdrant.tar.gz
         tar -xzf qdrant.tar.gz
         sudo mv qdrant /usr/local/bin/
         chmod +x /usr/local/bin/qdrant
@@ -255,7 +263,15 @@ jobs:
         
                  # Install Qdrant
          echo "🔍 Installing Qdrant vector database..."
-         curl -fsSL https://github.com/qdrant/qdrant/releases/download/v1.7.4/qdrant-v1.7.4-x86_64-apple-darwin.tar.gz -o qdrant.tar.gz
+         # Detect architecture and download appropriate version
+         ARCH=$(uname -m)
+         if [ "$ARCH" = "arm64" ] || [ "$ARCH" = "aarch64" ]; then
+           QDRANT_URL="https://github.com/qdrant/qdrant/releases/download/v1.7.4/qdrant-v1.7.4-aarch64-apple-darwin.tar.gz"
+         else
+           QDRANT_URL="https://github.com/qdrant/qdrant/releases/download/v1.7.4/qdrant-v1.7.4-x86_64-apple-darwin.tar.gz"
+         fi
+         echo "Installing Qdrant for architecture: $ARCH"
+         curl -fsSL "$QDRANT_URL" -o qdrant.tar.gz
          tar -xzf qdrant.tar.gz
          sudo mv qdrant /usr/local/bin/
          chmod +x /usr/local/bin/qdrant
