@@ -50,7 +50,13 @@ jobs:
         # Install required system packages
         brew install create-dmg
         brew install postgresql@14
-        brew install qdrant
+        
+        # Install Qdrant directly from official source
+        curl -fsSL https://github.com/qdrant/qdrant/releases/download/v1.7.4/qdrant-v1.7.4-x86_64-apple-darwin.tar.gz -o qdrant.tar.gz
+        tar -xzf qdrant.tar.gz
+        sudo mv qdrant /usr/local/bin/
+        chmod +x /usr/local/bin/qdrant
+        rm qdrant.tar.gz
         
         # Start PostgreSQL service
         brew services start postgresql@14
@@ -247,9 +253,13 @@ jobs:
         echo "📊 Setting up database..."
         createdb ragbot 2>/dev/null || echo "Database already exists"
         
-        # Install Qdrant
-        echo "🔍 Installing Qdrant vector database..."
-        brew install qdrant
+                 # Install Qdrant
+         echo "🔍 Installing Qdrant vector database..."
+         curl -fsSL https://github.com/qdrant/qdrant/releases/download/v1.7.4/qdrant-v1.7.4-x86_64-apple-darwin.tar.gz -o qdrant.tar.gz
+         tar -xzf qdrant.tar.gz
+         sudo mv qdrant /usr/local/bin/
+         chmod +x /usr/local/bin/qdrant
+         rm qdrant.tar.gz
         
         # Download and install Ollama
         echo "🤖 Installing Ollama..."

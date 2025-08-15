@@ -138,8 +138,12 @@ class MacOSSetup:
         """Install and configure Qdrant"""
         self.log("Installing Qdrant...")
         
-        # Install Qdrant
-        self.run_command("brew install qdrant")
+        # Install Qdrant directly from official source
+        self.run_command("curl -fsSL https://github.com/qdrant/qdrant/releases/download/v1.7.4/qdrant-v1.7.4-x86_64-apple-darwin.tar.gz -o qdrant.tar.gz")
+        self.run_command("tar -xzf qdrant.tar.gz")
+        self.run_command("sudo mv qdrant /usr/local/bin/")
+        self.run_command("chmod +x /usr/local/bin/qdrant")
+        self.run_command("rm qdrant.tar.gz")
         
         # Create Qdrant data directory
         qdrant_data = self.app_support / "qdrant"
