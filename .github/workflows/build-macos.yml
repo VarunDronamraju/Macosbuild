@@ -104,10 +104,15 @@ jobs:
         # Pull required models
         if [ -f "/Applications/Ollama.app/Contents/Resources/ollama" ]; then
           "/Applications/Ollama.app/Contents/Resources/ollama" pull gemma3:1b-it-qat
-          "/Applications/Ollama.app/Contents/Resources/ollama" pull all-MiniLM-L6-v2
+          echo "✅ Downloaded gemma3:1b-it-qat model"
         else
           echo "Warning: Ollama binary not found, models may not be available"
         fi
+        
+        # Install embedding model
+        echo "📥 Installing embedding model..."
+        pip install sentence-transformers
+        python -c "import sentence_transformers; model = sentence_transformers.SentenceTransformer('all-MiniLM-L6-v2'); print('✅ Downloaded all-MiniLM-L6-v2 embedding model')"
 
     - name: Setup Qdrant
       run: |
@@ -411,10 +416,15 @@ jobs:
         echo "📥 Downloading AI models (this may take a while)..."
         if [ -f "/Applications/Ollama.app/Contents/Resources/ollama" ]; then
           "/Applications/Ollama.app/Contents/Resources/ollama" pull gemma3:1b-it-qat
-          "/Applications/Ollama.app/Contents/Resources/ollama" pull all-MiniLM-L6-v2
+          echo "✅ Downloaded gemma3:1b-it-qat model"
         else
           echo "Warning: Ollama binary not found, models may not be available"
         fi
+        
+        # Install embedding model
+        echo "📥 Installing embedding model..."
+        pip install sentence-transformers
+        python -c "import sentence_transformers; model = sentence_transformers.SentenceTransformer('all-MiniLM-L6-v2'); print('✅ Downloaded all-MiniLM-L6-v2 embedding model')"
         
         # Install the application
         echo "📱 Installing RAG Companion AI..."
