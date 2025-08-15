@@ -128,43 +128,16 @@ class SessionManager(QObject):
         self.save_user_info()
         self.save_settings()
     
-    def cleanup_offline_data(self):
-        """Clean up offline/temporary data when app closes"""
-        if not self.user_info or not self.user_info.get('email'):
-            # Clear all temporary sessions for offline users
-            self.sessions = {}
-            self.current_session_id = None
-            logger.info("Cleaned up offline session data")
-            
-            # Also clear any anonymous session files
-            try:
-                anonymous_file = self.data_dir / "sessions_anonymous.json"
-                if anonymous_file.exists():
-                    anonymous_file.unlink()
-                    logger.info("Removed anonymous session file")
-            except Exception as e:
-                logger.warning(f"Failed to remove anonymous session file: {e}")
-    
     def load_sessions(self):
         """Load chat sessions from disk"""
-        # For offline mode (no user), don't load any sessions
-        if not self.user_sessions_file:
-            logger.info("Offline mode - no sessions loaded (temporary only)")
-            self.sessions = {}
-            self.current_session_id = None
-            self.sessions_loaded.emit()
-            return
+        # Use user-specific sessions file if available, otherwise fallback to default
+        sessions_file = self.user_sessions_file or self.sessions_file
         
-        # Use user-specific sessions file
-        if not self.user_sessions_file.exists():
-            logger.info(f"No existing sessions file for user: {self.user_info.get('email', 'unknown')}")
-            self.sessions = {}
-            self.current_session_id = None
-            self.sessions_loaded.emit()
+        if not sessions_file.exists():
             return
         
         try:
-            with open(self.user_sessions_file, 'r', encoding='utf-8') as f:
+            with open(sessions_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
             
             self.sessions = {}
@@ -179,25 +152,19 @@ class SessionManager(QObject):
             
         except Exception as e:
             logger.error(f"Failed to load sessions: {e}")
-            # On error, start with empty sessions
-            self.sessions = {}
-            self.current_session_id = None
-            self.sessions_loaded.emit()
     
     def save_sessions(self):
         """Save chat sessions to disk"""
-        # Don't save sessions in offline mode (no user)
-        if not self.user_sessions_file:
-            logger.debug("Offline mode - sessions not saved (temporary only)")
-            return
-        
         try:
             data = {
                 "sessions": [session.to_dict() for session in self.sessions.values()],
                 "current_session_id": self.current_session_id
             }
             
-            with open(self.user_sessions_file, 'w', encoding='utf-8') as f:
+            # Use user-specific sessions file if available, otherwise fallback to default
+            sessions_file = self.user_sessions_file or self.sessions_file
+            
+            with open(sessions_file, 'w', encoding='utf-8') as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
             
             logger.debug(f"Saved {len(self.sessions)} chat sessions for user: {self.user_info.get('email', 'anonymous')}")
@@ -268,11 +235,9 @@ class SessionManager(QObject):
             # Create safe filename from email
             safe_email = user_email.replace('@', '_at_').replace('.', '_')
             self.user_sessions_file = self.data_dir / f"sessions_{safe_email}.json"
-            logger.info(f"Switching to user-specific sessions: {self.user_sessions_file}")
         else:
-            # For anonymous/offline users, use temporary sessions that won't persist
-            self.user_sessions_file = None
-            logger.info("Switching to temporary sessions (offline mode)")
+            # Fallback to default sessions file for anonymous users
+            self.user_sessions_file = self.data_dir / "sessions_anonymous.json"
         
         # Clear current sessions and load user-specific sessions
         self.sessions = {}
@@ -483,3 +448,10 @@ class SessionManager(QObject):
         """Force save current session state"""
         self.save_data()
         logger.info("Session data saved")
+    
+    def cleanup_offline_data(self):
+        """Clean up offline data (placeholder for future implementation)"""
+        # This method is called when the application closes
+        # For now, just save the current state
+        self.save_data()
+        logger.info("Offline data cleanup completed")

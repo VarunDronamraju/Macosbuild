@@ -306,7 +306,7 @@ class SimpleAuthDialog(QDialog):
         layout.setSpacing(15)
         
         # Header
-        header = QLabel("🔐 Login to RAG Companion AI")
+        header = QLabel("[LOCK] Login to RAG Companion AI")
         header.setAlignment(Qt.AlignmentFlag.AlignCenter)
         header.setStyleSheet("font-size: 18px; font-weight: bold; margin: 20px; color: #0078d4;")
         layout.addWidget(header)
@@ -331,7 +331,7 @@ class SimpleAuthDialog(QDialog):
         layout.addWidget(message)
         
         # Authentication Instructions Group
-        auth_group = QGroupBox("🔑 Authentication Steps")
+        auth_group = QGroupBox("[KEY] Authentication Steps")
         auth_layout = QVBoxLayout(auth_group)
         
         # Step-by-step instructions
@@ -346,13 +346,13 @@ class SimpleAuthDialog(QDialog):
         auth_layout.addWidget(instructions)
         
         # Browser button
-        self.browser_button = QPushButton("🌐 Open Browser for Authentication")
+        self.browser_button = QPushButton("[GLOBE] Open Browser for Authentication")
         self.browser_button.clicked.connect(self.open_browser_auth)
         self.browser_button.setStyleSheet("padding: 12px 20px; font-size: 14px; font-weight: bold; background-color: #0078d4; color: white; border-radius: 6px;")
         auth_layout.addWidget(self.browser_button)
         
         # Token input section
-        token_label = QLabel("🔑 <b>Authentication Token:</b>")
+        token_label = QLabel("[KEY] <b>Authentication Token:</b>")
         token_label.setStyleSheet("margin-top: 15px; font-weight: bold; color: #333;")
         auth_layout.addWidget(token_label)
         
@@ -367,7 +367,7 @@ class SimpleAuthDialog(QDialog):
         auth_layout.addWidget(self.token_input)
         
         # Verify button
-        self.verify_button = QPushButton("✅ Verify & Login")
+        self.verify_button = QPushButton("[SUCCESS] Verify & Login")
         self.verify_button.setEnabled(False)
         self.verify_button.clicked.connect(self.verify_and_login)
         self.verify_button.setStyleSheet("padding: 12px 20px; font-size: 14px; font-weight: bold; background-color: #28a745; color: white; border-radius: 6px; margin-top: 10px;")
@@ -427,9 +427,9 @@ class SimpleAuthDialog(QDialog):
             # Show improved completion dialog
             QMessageBox.information(
                 self,
-                "🌐 Authentication Started",
-                "✅ Browser opened for Google authentication.\n\n"
-                "📋 What to do next:\n"
+                "[GLOBE] Authentication Started",
+                "[SUCCESS] Browser opened for Google authentication.\n\n"
+                "[CLIPBOARD] What to do next:\n"
                 "1. Complete the Google login in your browser\n"
                 "2. After success, you'll see a confirmation page\n"
                 "3. Look for the token in the browser (check localStorage or page source)\n"

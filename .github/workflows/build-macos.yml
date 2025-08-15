@@ -1,0 +1,419 @@
+name: Build macOS Application
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: 'Release version (e.g., 1.0.0)'
+        required: false
+        default: '1.0.0'
+
+env:
+  PYTHON_VERSION: '3.11'
+  OLLAMA_VERSION: '0.1.29'
+  QDRANT_VERSION: '1.7.4'
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Cache Python dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install system dependencies
+      run: |
+        # Install Homebrew if not available
+        if ! command -v brew &> /dev/null; then
+          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        fi
+        
+        # Install required system packages
+        brew install create-dmg
+        brew install postgresql@14
+        brew install qdrant
+        
+        # Start PostgreSQL service
+        brew services start postgresql@14
+        
+        # Create database
+        createdb ragbot || true
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller==6.2.0
+        pip install create-dmg
+
+    - name: Download and setup Ollama
+      run: |
+        # Download Ollama
+        curl -fsSL https://ollama.ai/download/ollama-darwin-amd64 -o ollama
+        chmod +x ollama
+        sudo mv ollama /usr/local/bin/
+        
+        # Start Ollama service
+        ollama serve &
+        sleep 10
+        
+        # Pull required models
+        ollama pull gemma3:1b-it-qat
+        ollama pull all-MiniLM-L6-v2
+
+    - name: Setup Qdrant
+      run: |
+        # Start Qdrant
+        qdrant &
+        sleep 5
+        
+        # Create collections if needed
+        curl -X PUT "http://localhost:6333/collections/documents" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "vectors": {
+              "size": 384,
+              "distance": "Cosine"
+            }
+          }' || true
+
+    - name: Create environment configuration
+      run: |
+        cat > .env << EOF
+        # Database
+        DATABASE_URL=postgresql://postgres@localhost:5432/ragbot
+        
+        # Vector Database
+        QDRANT_URL=http://localhost:6333
+        QDRANT_API_KEY=
+        
+        # AI Models
+        EMBEDDING_MODEL=all-MiniLM-L6-v2
+        LLM_MODEL=gemma3:1b-it-qat
+        OLLAMA_URL=http://localhost:11434
+        
+        # External APIs
+        TAVILY_API_KEY=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
+        GOOGLE_CLIENT_ID=778657599269-ouflj5id5r0bchm9a8lcko1tskkk4j4f.apps.googleusercontent.com
+        GOOGLE_CLIENT_SECRET=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
+        
+        # Application
+        SECRET_KEY=kJ8mN2pQ5sT9vY3wZ6aD1fH4jL7nR0uX8bE5hK2mP9sV6yB3eG1iL4oR7tA0cF3h
+        UPLOAD_DIR=uploads
+        CHUNK_SIZE=512
+        CHUNK_OVERLAP=50
+        MAX_CONTEXT_LENGTH=4000
+        EOF
+
+    - name: Create app resources
+      run: |
+        # Create necessary directories
+        mkdir -p resources/icons
+        mkdir -p resources/models
+        mkdir -p resources/binaries/macos
+        mkdir -p uploads
+        
+        # Create a simple app icon if not exists
+        if [ ! -f "resources/icons/app_icon.icns" ]; then
+          # Create a simple icon using sips (macOS built-in)
+          echo "Creating placeholder app icon..."
+          # This is a placeholder - you should replace with your actual icon
+          touch resources/icons/app_icon.icns
+        fi
+        
+        # Copy Qdrant binary for macOS
+        cp $(which qdrant) resources/binaries/macos/qdrant || true
+
+    - name: Run tests
+      run: |
+        # Basic functionality tests
+        python -c "
+        import sys
+        sys.path.append('.')
+        from backend.config import settings
+        print('Configuration loaded successfully')
+        print(f'Database URL: {settings.DATABASE_URL}')
+        print(f'Qdrant URL: {settings.QDRANT_URL}')
+        print(f'Ollama URL: {settings.OLLAMA_URL}')
+        "
+        
+        # Test imports
+        python -c "
+        import sys
+        sys.path.append('.')
+        try:
+          from frontend.main_window import MainWindow
+          from backend.main import app
+          print('✅ All imports successful')
+        except Exception as e:
+          print(f'❌ Import error: {e}')
+          sys.exit(1)
+        "
+
+    - name: Build macOS application
+      run: |
+        # Clean previous builds
+        rm -rf build dist
+        
+        # Build with PyInstaller using enhanced spec
+        pyinstaller --clean --noconfirm dist_configs/pyinstaller_macos_complete.spec
+        
+        # Verify app bundle
+        if [ -d "dist/RAG Companion AI.app" ]; then
+          echo "✅ App bundle created successfully"
+          ls -la "dist/RAG Companion AI.app/Contents/MacOS/"
+          
+          # Copy setup script to app bundle
+          cp scripts/setup_macos_complete.py "dist/RAG Companion AI.app/Contents/Resources/"
+          chmod +x "dist/RAG Companion AI.app/Contents/Resources/setup_macos_complete.py"
+        else
+          echo "❌ App bundle creation failed"
+          exit 1
+        fi
+
+    - name: Create DMG installer
+      run: |
+        # Create DMG using create-dmg
+        create-dmg \
+          --volname "RAG Companion AI" \
+          --volicon "resources/icons/app_icon.icns" \
+          --window-pos 200 120 \
+          --window-size 600 400 \
+          --icon-size 100 \
+          --icon "RAG Companion AI.app" 175 190 \
+          --hide-extension "RAG Companion AI.app" \
+          --app-drop-link 425 190 \
+          "dist/RAGCompanionAI-Installer.dmg" \
+          "dist/"
+        
+        # Verify DMG
+        if [ -f "dist/RAGCompanionAI-Installer.dmg" ]; then
+          echo "✅ DMG created successfully"
+          ls -lh "dist/RAGCompanionAI-Installer.dmg"
+        else
+          echo "❌ DMG creation failed"
+          exit 1
+        fi
+
+    - name: Create installation script
+      run: |
+        cat > "dist/install.sh" << 'EOF'
+        #!/bin/bash
+        
+        echo "🚀 RAG Companion AI - One-Step Installation"
+        echo "============================================="
+        
+        # Check if running on macOS
+        if [[ "$OSTYPE" != "darwin"* ]]; then
+          echo "❌ This installer is for macOS only"
+          exit 1
+        fi
+        
+        # Check macOS version
+        MACOS_VERSION=$(sw_vers -productVersion)
+        echo "📱 macOS Version: $MACOS_VERSION"
+        
+        # Install Homebrew if not present
+        if ! command -v brew &> /dev/null; then
+          echo "🍺 Installing Homebrew..."
+          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        fi
+        
+        # Install PostgreSQL
+        echo "🗄️ Installing PostgreSQL..."
+        brew install postgresql@14
+        brew services start postgresql@14
+        
+        # Create database
+        echo "📊 Setting up database..."
+        createdb ragbot 2>/dev/null || echo "Database already exists"
+        
+        # Install Qdrant
+        echo "🔍 Installing Qdrant vector database..."
+        brew install qdrant
+        
+        # Download and install Ollama
+        echo "🤖 Installing Ollama..."
+        curl -fsSL https://ollama.ai/download/ollama-darwin-amd64 -o ollama
+        chmod +x ollama
+        sudo mv ollama /usr/local/bin/
+        
+        # Start services
+        echo "🚀 Starting services..."
+        brew services start postgresql@14
+        qdrant &
+        ollama serve &
+        
+        # Wait for services to start
+        echo "⏳ Waiting for services to start..."
+        sleep 10
+        
+        # Pull AI models
+        echo "📥 Downloading AI models (this may take a while)..."
+        ollama pull gemma3:1b-it-qat
+        ollama pull all-MiniLM-L6-v2
+        
+        # Install the application
+        echo "📱 Installing RAG Companion AI..."
+        if [ -d "/Applications/RAG Companion AI.app" ]; then
+          rm -rf "/Applications/RAG Companion AI.app"
+        fi
+        cp -R "RAG Companion AI.app" "/Applications/"
+        
+        echo "✅ Installation complete!"
+        echo ""
+        echo "🎉 RAG Companion AI has been installed successfully!"
+        echo "📱 You can find it in your Applications folder"
+        echo "🚀 Launch it from Spotlight (Cmd+Space) or Applications folder"
+        echo ""
+        echo "📋 Services running:"
+        echo "   - PostgreSQL (port 5432)"
+        echo "   - Qdrant (port 6333)"
+        echo "   - Ollama (port 11434)"
+        echo ""
+        echo "🔧 To stop services:"
+        echo "   brew services stop postgresql@14"
+        echo "   pkill qdrant"
+        echo "   pkill ollama"
+        EOF
+        
+        chmod +x "dist/install.sh"
+
+    - name: Create README for distribution
+      run: |
+        cat > "dist/README.md" << 'EOF'
+        # RAG Companion AI - macOS Installation
+
+        ## Quick Start
+
+        1. **Double-click** `RAGCompanionAI-Installer.dmg`
+        2. **Drag** the app to Applications folder
+        3. **Run** the installation script: `./install.sh`
+        4. **Launch** RAG Companion AI from Applications
+
+        ## What's Included
+
+        - ✅ RAG Companion AI Desktop Application
+        - ✅ PostgreSQL Database (port 5432)
+        - ✅ Qdrant Vector Database (port 6333)
+        - ✅ Ollama AI Models (port 11434)
+        - ✅ Pre-configured API Keys
+        - ✅ All Dependencies
+
+        ## System Requirements
+
+        - macOS 10.15 (Catalina) or later
+        - 8GB RAM minimum (16GB recommended)
+        - 10GB free disk space
+        - Internet connection for initial setup
+
+        ## Services
+
+        The application uses these services:
+        - **PostgreSQL**: Document storage and user management
+        - **Qdrant**: Vector embeddings for semantic search
+        - **Ollama**: Local AI models for text generation
+
+        ## Troubleshooting
+
+        If you encounter issues:
+
+        1. **Check services are running:**
+           ```bash
+           brew services list
+           ps aux | grep qdrant
+           ps aux | grep ollama
+           ```
+
+        2. **Restart services:**
+           ```bash
+           brew services restart postgresql@14
+           pkill qdrant && qdrant &
+           pkill ollama && ollama serve &
+           ```
+
+        3. **Check logs:**
+           ```bash
+           tail -f ~/Library/Logs/RAG\ Companion\ AI/
+           ```
+
+        ## API Keys Included
+
+        The following API keys are pre-configured:
+        - **Tavily**: Search API for web queries
+        - **Google OAuth**: User authentication
+        - **Local Models**: No external API required
+
+        ## Support
+
+        For issues and support, please visit the GitHub repository.
+        EOF
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: RAGCompanionAI-macOS-${{ github.run_number }}
+        path: |
+          dist/RAG Companion AI.app
+          dist/RAGCompanionAI-Installer.dmg
+          dist/install.sh
+          dist/README.md
+        retention-days: 30
+
+    - name: Create Release (on tag)
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          dist/RAGCompanionAI-Installer.dmg
+          dist/install.sh
+          dist/README.md
+        body: |
+          ## RAG Companion AI for macOS
+          
+          ### What's New
+          - Complete one-step installation
+          - Pre-configured with all API keys
+          - Local AI models included
+          - Vector database setup
+          
+          ### Installation
+          1. Download the DMG file
+          2. Run the installation script
+          3. Launch from Applications
+          
+          ### System Requirements
+          - macOS 10.15+
+          - 8GB RAM minimum
+          - 10GB disk space
+          
+          ### Services Included
+          - PostgreSQL Database
+          - Qdrant Vector Database  
+          - Ollama AI Models
+          
+          ### Pre-configured APIs
+          - Tavily Search API
+          - Google OAuth
+          - Local AI Models
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

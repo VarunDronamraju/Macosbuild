@@ -1,0 +1,9 @@
+This is a test document for verifying document upload functionality.
+
+The document contains:
+- Test content for upload verification
+- Multiple lines of text
+- Special characters: !@#$%^&*()
+- Numbers: 1234567890
+
+This document will be used to test the frontend to backend document ingestion process.

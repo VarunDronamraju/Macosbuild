@@ -1,6 +1,6 @@
 """
 Document Panel for RAG Desktop Application
-Handles document upload, management, and display
+Handles document upload, management, and display - Dream UI Style
 """
 
 import os
@@ -13,15 +13,42 @@ from PyQt6.QtWidgets import (
     QMessageBox, QMenu, QFrame, QTextEdit, QSplitter, QScrollArea
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QThread, QMimeData
-from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QAction, QFont
+from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QAction, QFont, QPainter, QBrush, QLinearGradient, QRadialGradient, QColor
 
 from frontend.api_client import APIClient
 from frontend.session_manager import SessionManager
 
 logger = logging.getLogger(__name__)
 
+class GradientWidget(QWidget):
+    """Widget with dream UI gradient background"""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+    
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        # Main gradient background
+        gradient = QLinearGradient(0, 0, self.width(), self.height())
+        gradient.setColorAt(0, QColor(248, 255, 254))  # #f8fffe
+        gradient.setColorAt(1, QColor(240, 249, 247))  # #f0f9f7
+        painter.fillRect(self.rect(), QBrush(gradient))
+        
+        # Radial gradient patterns
+        radial1 = QRadialGradient(self.width() * 0.2, self.height() * 0.8, self.width() * 0.5)
+        radial1.setColorAt(0, QColor(120, 220, 180, 25))
+        radial1.setColorAt(1, QColor(120, 220, 180, 0))
+        painter.fillRect(self.rect(), QBrush(radial1))
+        
+        radial2 = QRadialGradient(self.width() * 0.8, self.height() * 0.2, self.width() * 0.5)
+        radial2.setColorAt(0, QColor(120, 220, 180, 20))
+        radial2.setColorAt(1, QColor(120, 220, 180, 0))
+        painter.fillRect(self.rect(), QBrush(radial2))
+
 class DocumentItem(QListWidgetItem):
-    """Custom list item for documents"""
+    """Custom list item for documents with Dream UI styling"""
     
     def __init__(self, document_data: Dict):
         super().__init__()
@@ -35,15 +62,15 @@ class DocumentItem(QListWidgetItem):
         file_type = self.document_data.get("file_type", "").upper()
         status = self.document_data.get("processing_status", "unknown")
         
-        # Status emoji
+        # Status emoji with better styling
         status_emoji = {
-            "completed": "âœ…",
-            "processing": "â³",
-            "pending": "â¸ï¸",
-            "failed": "âŒ"
-        }.get(status, "â“")
+            "completed": "[SUCCESS]",
+            "processing": "⏳",
+            "pending": "⏸️",
+            "failed": "[FAIL]"
+        }.get(status, "❓")
         
-        self.setText(f"{status_emoji} {filename} ({file_type})")
+        self.setText(f"{status_emoji} {filename}")
         
         # Tooltip with details
         file_size = self.document_data.get("file_size", 0)
@@ -53,12 +80,12 @@ class DocumentItem(QListWidgetItem):
         size_str = self.format_file_size(file_size)
         
         tooltip = f"""
-        File: {filename}
-        Type: {file_type}
-        Size: {size_str}
-        Status: {status.title()}
-        Chunks: {chunk_count}
-        Uploaded: {upload_date.split('T')[0] if upload_date else 'Unknown'}
+        [DOC] {filename}
+        📂 Type: {file_type}
+        📊 Size: {size_str}
+        ⚡ Status: {status.title()}
+        🧩 Chunks: {chunk_count}
+        📅 Uploaded: {upload_date.split('T')[0] if upload_date else 'Unknown'}
         """
         self.setToolTip(tooltip.strip())
         
@@ -122,7 +149,7 @@ class UploadThread(QThread):
                 self.upload_failed.emit(filename, str(e))
 
 class DocumentPanel(QWidget):
-    """Document management panel"""
+    """Document management panel with Dream UI styling"""
     
     document_uploaded = pyqtSignal(str)  # filename
     document_deleted = pyqtSignal(str)   # filename
@@ -158,100 +185,264 @@ class DocumentPanel(QWidget):
         logger.info("Document panel initialized")
     
     def setup_ui(self):
-        """Setup the user interface"""
+        """Setup the user interface in Dream UI style"""
+        # Create main widget with gradient background
+        main_widget = GradientWidget()
+        
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(5, 5, 5, 5)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(main_widget)
+        
+        # Content layout
+        content_layout = QVBoxLayout(main_widget)
+        content_layout.setContentsMargins(20, 20, 20, 20)
+        content_layout.setSpacing(20)
         
         # Header
         header_layout = QHBoxLayout()
         
-        title_label = QLabel("ðŸ“„ Documents")
-        title_label.setStyleSheet("font-size: 16px; font-weight: bold; margin: 5px;")
+        title_label = QLabel("[DOC] Documents")
+        title_label.setFont(QFont("Arial", 18, QFont.Weight.DemiBold))
+        title_label.setStyleSheet("color: #2d3748; margin-bottom: 10px;")
         header_layout.addWidget(title_label)
         
         header_layout.addStretch()
         
         # Refresh button
-        self.refresh_button = QPushButton("ðŸ”„")
+        self.refresh_button = QPushButton("🔄")
         self.refresh_button.setToolTip("Refresh document list")
         self.refresh_button.clicked.connect(self.refresh_documents)
-        self.refresh_button.setMaximumWidth(30)
+        self.refresh_button.setFixedSize(36, 36)
+        self.refresh_button.setStyleSheet("""
+            QPushButton {
+                background: rgba(255, 255, 255, 0.8);
+                border: 1px solid rgba(0, 0, 0, 0.05);
+                border-radius: 18px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background: rgba(120, 220, 180, 0.1);
+                border: 1px solid rgba(120, 220, 180, 0.2);
+            }
+        """)
         header_layout.addWidget(self.refresh_button)
         
-        layout.addLayout(header_layout)
+        content_layout.addLayout(header_layout)
         
         # Upload area
-        upload_group = QGroupBox("Upload Documents")
-        upload_layout = QVBoxLayout(upload_group)
+        upload_area = self.create_upload_area()
+        content_layout.addWidget(upload_area)
+        
+        # Document list
+        list_area = self.create_document_list()
+        content_layout.addWidget(list_area)
+        
+        content_layout.addStretch()
+    
+    def create_upload_area(self):
+        """Create the upload area with Dream UI styling"""
+        upload_frame = QFrame()
+        upload_frame.setStyleSheet("""
+            QFrame {
+                background: rgba(255, 255, 255, 0.7);
+                border: 1px solid rgba(0, 0, 0, 0.05);
+                border-radius: 16px;
+                padding: 20px;
+            }
+        """)
+        
+        layout = QVBoxLayout(upload_frame)
+        layout.setSpacing(16)
+        
+        # Upload title
+        upload_title = QLabel("Upload Documents")
+        upload_title.setFont(QFont("Arial", 14, QFont.Weight.Medium))
+        upload_title.setStyleSheet("color: #2d3748; margin-bottom: 8px;")
+        layout.addWidget(upload_title)
         
         # Drop zone
         self.drop_zone = QFrame()
-        self.drop_zone.setFrameStyle(QFrame.Shape.StyledPanel)
+        self.drop_zone.setFrameStyle(QFrame.Shape.NoFrame)
         self.drop_zone.setStyleSheet("""
             QFrame {
-                border: 2px dashed #aaa;
-                border-radius: 8px;
-                background-color: #f9f9f9;
-                min-height: 80px;
+                border: 2px dashed rgba(120, 220, 180, 0.5);
+                border-radius: 12px;
+                background: rgba(248, 255, 254, 0.8);
+                min-height: 100px;
+                padding: 20px;
+            }
+            QFrame:hover {
+                border-color: #78dcb4;
+                background: rgba(120, 220, 180, 0.05);
             }
         """)
         
         drop_layout = QVBoxLayout(self.drop_zone)
-        drop_label = QLabel("ðŸ“ Drag & Drop Documents Here\nor click Upload to browse")
+        drop_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        # Drop zone icon and text
+        drop_icon = QLabel("📁")
+        drop_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        drop_icon.setStyleSheet("font-size: 32px; margin-bottom: 8px;")
+        drop_layout.addWidget(drop_icon)
+        
+        drop_label = QLabel("Drag & Drop Documents Here\nor click Upload to browse")
         drop_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        drop_label.setStyleSheet("color: #666; font-size: 14px;")
+        drop_label.setStyleSheet("color: #4a5568; font-size: 12px; line-height: 1.4;")
         drop_layout.addWidget(drop_label)
         
-        upload_layout.addWidget(self.drop_zone)
+        layout.addWidget(self.drop_zone)
         
         # Upload buttons
         button_layout = QHBoxLayout()
         
-        self.upload_button = QPushButton("ðŸ“¤ Upload Files...")
+        self.upload_button = QPushButton("📤 Upload Files...")
         self.upload_button.clicked.connect(self.select_and_upload_files)
+        self.upload_button.setStyleSheet("""
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
+                                          stop:0 #78dcb4, stop:1 #68d391);
+                border: none;
+                border-radius: 8px;
+                color: white;
+                padding: 10px 20px;
+                font-weight: 500;
+                font-size: 12px;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
+                                          stop:0 #68d391, stop:1 #48bb78);
+            }
+            QPushButton:disabled {
+                background: #e2e8f0;
+                color: #a0aec0;
+            }
+        """)
         button_layout.addWidget(self.upload_button)
         
         button_layout.addStretch()
         
-        upload_layout.addLayout(button_layout)
+        # Supported formats info
+        formats_label = QLabel("Supported: PDF, DOCX, TXT, MD")
+        formats_label.setStyleSheet("color: #718096; font-size: 10px;")
+        button_layout.addWidget(formats_label)
+        
+        layout.addLayout(button_layout)
         
         # Progress bar
         self.progress_bar = QProgressBar()
         self.progress_bar.setVisible(False)
-        upload_layout.addWidget(self.progress_bar)
+        self.progress_bar.setStyleSheet("""
+            QProgressBar {
+                background: rgba(255, 255, 255, 0.8);
+                border: 1px solid rgba(0, 0, 0, 0.05);
+                border-radius: 8px;
+                text-align: center;
+                color: #2d3748;
+                height: 20px;
+            }
+            QProgressBar::chunk {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
+                                          stop:0 #78dcb4, stop:1 #68d391);
+                border-radius: 6px;
+                margin: 1px;
+            }
+        """)
+        layout.addWidget(self.progress_bar)
         
-        layout.addWidget(upload_group)
+        return upload_frame
+    
+    def create_document_list(self):
+        """Create the document list area"""
+        list_frame = QFrame()
+        list_frame.setStyleSheet("""
+            QFrame {
+                background: rgba(255, 255, 255, 0.7);
+                border: 1px solid rgba(0, 0, 0, 0.05);
+                border-radius: 16px;
+                padding: 20px;
+            }
+        """)
         
-        # Document list
-        list_group = QGroupBox("Your Documents")
-        list_layout = QVBoxLayout(list_group)
+        layout = QVBoxLayout(list_frame)
+        layout.setSpacing(16)
         
+        # List title and actions
+        header_layout = QHBoxLayout()
+        
+        list_title = QLabel("Your Documents")
+        list_title.setFont(QFont("Arial", 14, QFont.Weight.Medium))
+        list_title.setStyleSheet("color: #2d3748;")
+        header_layout.addWidget(list_title)
+        
+        header_layout.addStretch()
+        
+        # Delete button
+        self.delete_button = QPushButton("[DELETE] Delete")
+        self.delete_button.clicked.connect(self.delete_selected_document)
+        self.delete_button.setEnabled(False)
+        self.delete_button.setStyleSheet("""
+            QPushButton {
+                background: rgba(239, 68, 68, 0.1);
+                border: 1px solid rgba(239, 68, 68, 0.2);
+                border-radius: 8px;
+                color: #ef4444;
+                padding: 6px 12px;
+                font-size: 11px;
+            }
+            QPushButton:hover {
+                background: rgba(239, 68, 68, 0.2);
+                border: 1px solid rgba(239, 68, 68, 0.3);
+            }
+            QPushButton:disabled {
+                background: rgba(0, 0, 0, 0.05);
+                border: 1px solid rgba(0, 0, 0, 0.05);
+                color: #a0aec0;
+            }
+        """)
+        header_layout.addWidget(self.delete_button)
+        
+        layout.addLayout(header_layout)
+        
+        # Document list widget
         self.document_list = QListWidget()
         self.document_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.document_list.customContextMenuRequested.connect(self.show_context_menu)
         self.document_list.itemSelectionChanged.connect(self.on_selection_changed)
-        list_layout.addWidget(self.document_list)
-        
-        # Document actions
-        actions_layout = QHBoxLayout()
-        
-        self.delete_button = QPushButton("ðŸ—‘ï¸ Delete")
-        self.delete_button.clicked.connect(self.delete_selected_document)
-        self.delete_button.setEnabled(False)
-        actions_layout.addWidget(self.delete_button)
-        
-        actions_layout.addStretch()
-        
-        list_layout.addLayout(actions_layout)
-        
-        layout.addWidget(list_group)
+        self.document_list.setStyleSheet("""
+            QListWidget {
+                background: rgba(255, 255, 255, 0.5);
+                border: 1px solid rgba(0, 0, 0, 0.05);
+                border-radius: 8px;
+                padding: 8px;
+            }
+            QListWidget::item {
+                background: rgba(255, 255, 255, 0.8);
+                border: 1px solid rgba(0, 0, 0, 0.05);
+                border-radius: 8px;
+                margin: 2px;
+                padding: 12px 16px;
+                font-size: 12px;
+                color: #2d3748;
+            }
+            QListWidget::item:hover {
+                background: rgba(120, 220, 180, 0.1);
+                border: 1px solid rgba(120, 220, 180, 0.2);
+            }
+            QListWidget::item:selected {
+                background: rgba(120, 220, 180, 0.15);
+                border: 1px solid rgba(120, 220, 180, 0.3);
+                color: #2d3748;
+            }
+        """)
+        layout.addWidget(self.document_list)
         
         # Status
         self.status_label = QLabel("Ready")
-        self.status_label.setStyleSheet("color: #666; font-size: 12px; margin: 5px;")
+        self.status_label.setStyleSheet("color: #718096; font-size: 11px; margin-top: 8px;")
         layout.addWidget(self.status_label)
         
-        layout.addStretch()
+        return list_frame
     
     def setup_signals(self):
         """Setup signal connections"""
@@ -266,11 +457,41 @@ class DocumentPanel(QWidget):
         """Handle drag enter event"""
         if event.mimeData().hasUrls():
             event.acceptProposedAction()
+            # Visual feedback
+            self.drop_zone.setStyleSheet("""
+                QFrame {
+                    border: 2px dashed #78dcb4;
+                    border-radius: 12px;
+                    background: rgba(120, 220, 180, 0.1);
+                    min-height: 100px;
+                    padding: 20px;
+                }
+            """)
+    
+    def dragLeaveEvent(self, event):
+        """Handle drag leave event"""
+        # Reset drop zone style
+        self.drop_zone.setStyleSheet("""
+            QFrame {
+                border: 2px dashed rgba(120, 220, 180, 0.5);
+                border-radius: 12px;
+                background: rgba(248, 255, 254, 0.8);
+                min-height: 100px;
+                padding: 20px;
+            }
+            QFrame:hover {
+                border-color: #78dcb4;
+                background: rgba(120, 220, 180, 0.05);
+            }
+        """)
     
     def dropEvent(self, event: QDropEvent):
         """Handle drop event"""
         files = [url.toLocalFile() for url in event.mimeData().urls()]
         self.upload_files(files)
+        
+        # Reset drop zone style
+        self.dragLeaveEvent(None)
     
     def select_and_upload_files(self):
         """Open file dialog and upload selected files"""
@@ -342,7 +563,7 @@ class DocumentPanel(QWidget):
     def on_upload_progress(self, filename: str, percentage: int):
         """Handle upload progress"""
         self.progress_bar.setValue(percentage)
-        self.status_label.setText(f"Uploading {filename}... {percentage}%")
+        self.status_label.setText(f"📤 Uploading {filename}... {percentage}%")
     
     def on_upload_completed(self, filename: str, result: Dict):
         """Handle upload completion"""
@@ -361,7 +582,7 @@ class DocumentPanel(QWidget):
     def on_upload_finished(self):
         """Handle upload process completion"""
         self.set_upload_state(False)
-        self.status_label.setText("Upload completed")
+        self.status_label.setText("[SUCCESS] Upload completed")
         
         # Refresh document list
         QTimer.singleShot(1000, self.refresh_documents)
@@ -378,7 +599,7 @@ class DocumentPanel(QWidget):
     
     def refresh_documents(self):
         """Refresh the document list"""
-        self.status_label.setText("Loading documents...")
+        self.status_label.setText("[CLIPBOARD] Loading documents...")
         
         # Determine which endpoint to use
         if self.is_authenticated and self.is_online:
@@ -389,9 +610,9 @@ class DocumentPanel(QWidget):
         if result["success"]:
             self.documents = result["documents"]
             self.update_document_list()
-            self.status_label.setText(f"Loaded {len(self.documents)} document(s)")
+            self.status_label.setText(f"📊 Loaded {len(self.documents)} document(s)")
         else:
-            self.status_label.setText(f"Failed to load documents: {result['error']}")
+            self.status_label.setText(f"[FAIL] Failed to load documents: {result['error']}")
             logger.error(f"Failed to refresh documents: {result['error']}")
     
     def update_document_list(self):
@@ -412,14 +633,29 @@ class DocumentPanel(QWidget):
             return
         
         menu = QMenu(self)
+        menu.setStyleSheet("""
+            QMenu {
+                background: white;
+                border: 1px solid rgba(0, 0, 0, 0.05);
+                border-radius: 8px;
+                padding: 4px 0;
+            }
+            QMenu::item {
+                padding: 8px 16px;
+                font-size: 12px;
+            }
+            QMenu::item:selected {
+                background: rgba(120, 220, 180, 0.1);
+            }
+        """)
         
         # Delete action
-        delete_action = QAction("Delete Document", self)
+        delete_action = QAction("[DELETE] Delete Document", self)
         delete_action.triggered.connect(lambda: self.delete_document(item))
         menu.addAction(delete_action)
         
         # View details action
-        details_action = QAction("View Details", self)
+        details_action = QAction("ℹ️ View Details", self)
         details_action.triggered.connect(lambda: self.show_document_details(item))
         menu.addAction(details_action)
         
@@ -458,7 +694,7 @@ class DocumentPanel(QWidget):
             result = self.api_client.delete_document(document_id)
             
             if result["success"]:
-                self.status_label.setText(f"Deleted {filename}")
+                self.status_label.setText(f"[DELETE] Deleted {filename}")
                 self.document_deleted.emit(filename)
                 self.refresh_documents()
             else:
@@ -473,27 +709,34 @@ class DocumentPanel(QWidget):
         doc_data = item.document_data
         
         details = f"""
-        <h3>{doc_data.get('filename', 'Unknown')}</h3>
-        <table>
-        <tr><td><b>Type:</b></td><td>{doc_data.get('file_type', 'Unknown').upper()}</td></tr>
-        <tr><td><b>Size:</b></td><td>{item.format_file_size(doc_data.get('file_size', 0))}</td></tr>
-        <tr><td><b>Status:</b></td><td>{doc_data.get('processing_status', 'Unknown').title()}</td></tr>
-        <tr><td><b>Chunks:</b></td><td>{doc_data.get('chunk_count', 0)}</td></tr>
-        <tr><td><b>Uploaded:</b></td><td>{doc_data.get('upload_date', 'Unknown').split('T')[0]}</td></tr>
-        <tr><td><b>ID:</b></td><td>{doc_data.get('id', 'Unknown')}</td></tr>
+        <div style="font-family: Arial; font-size: 12px;">
+        <h3 style="color: #2d3748; margin-bottom: 16px;">[DOC] {doc_data.get('filename', 'Unknown')}</h3>
+        <table style="width: 100%; border-collapse: collapse;">
+        <tr><td style="padding: 4px 8px; font-weight: bold; color: #4a5568;">Type:</td><td style="padding: 4px 8px;">{doc_data.get('file_type', 'Unknown').upper()}</td></tr>
+        <tr><td style="padding: 4px 8px; font-weight: bold; color: #4a5568;">Size:</td><td style="padding: 4px 8px;">{item.format_file_size(doc_data.get('file_size', 0))}</td></tr>
+        <tr><td style="padding: 4px 8px; font-weight: bold; color: #4a5568;">Status:</td><td style="padding: 4px 8px;">{doc_data.get('processing_status', 'Unknown').title()}</td></tr>
+        <tr><td style="padding: 4px 8px; font-weight: bold; color: #4a5568;">Chunks:</td><td style="padding: 4px 8px;">{doc_data.get('chunk_count', 0)}</td></tr>
+        <tr><td style="padding: 4px 8px; font-weight: bold; color: #4a5568;">Uploaded:</td><td style="padding: 4px 8px;">{doc_data.get('upload_date', 'Unknown').split('T')[0]}</td></tr>
+        <tr><td style="padding: 4px 8px; font-weight: bold; color: #4a5568;">ID:</td><td style="padding: 4px 8px; font-family: monospace; font-size: 10px;">{doc_data.get('id', 'Unknown')}</td></tr>
         </table>
+        </div>
         """
         
-        QMessageBox.information(self, "Document Details", details)
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Document Details")
+        msg.setTextFormat(Qt.TextFormat.RichText)
+        msg.setText(details)
+        msg.setStandardButtons(QMessageBox.StandardButton.Ok)
+        msg.exec()
     
     def update_online_status(self, is_online: bool):
         """Update online status"""
         self.is_online = is_online
         
         if is_online:
-            self.status_label.setText("ðŸŸ¢ Online - Full functionality available")
+            self.status_label.setText("[GREEN] Online - Full functionality available")
         else:
-            self.status_label.setText("ðŸ”´ Offline - Using local storage")
+            self.status_label.setText("[RED] Offline - Using local storage")
         
         # Refresh documents with appropriate endpoint
         QTimer.singleShot(500, self.refresh_documents)
@@ -504,12 +747,9 @@ class DocumentPanel(QWidget):
         self.current_user = user_info
         
         if is_authenticated and user_info:
-            self.status_label.setText(f"ðŸ'¤ {user_info.get('name', 'User')}'s documents")
+            self.status_label.setText(f"👤 {user_info.get('name', 'User')}'s documents")
         else:
-            self.status_label.setText("ðŸ"" Offline mode - No documents available")
-            # Clear documents in offline mode
-            self.documents = []
-            self.update_document_list()
+            self.status_label.setText("📂 Local documents")
         
         # Refresh documents with appropriate endpoint
         QTimer.singleShot(500, self.refresh_documents)
